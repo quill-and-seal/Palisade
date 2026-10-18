@@ -1,0 +1,35 @@
+{
+  "PALISADE": {
+    "Controls": {
+      "Toggle": "Palisade: auto-linked walls"
+    },
+    "Settings": {
+      "Enabled": {
+        "Name": "Auto-linked walls",
+        "Hint": "Snaps walls together while drawing and keeps joints when you move them. Also toggled with the chain button in the wall tools. Per browser."
+      },
+      "SnapDistance": {
+        "Name": "Snap distance (px)",
+        "Hint": "An endpoint dropped closer than this to another wall sticks to it: to its endpoint first, otherwise to its middle. 0 disables snapping."
+      },
+      "MoveJoints": {
+        "Name": "Joints follow",
+        "Hint": "When you move an endpoint or a wall, the walls that shared that point follow it instead of coming apart."
+      },
+      "AutoSplit": {
+        "Name": "T-junction split",
+        "Hint": "A wall whose endpoint lands in the middle of another splits it in two, so each piece stays linked."
+      },
+      "SkipDoors": {
+        "Name": "Never split doors",
+        "Hint": "A door touched in its middle stays whole."
+      }
+    },
+    "Keybindings": {
+      "SelectConnected": {
+        "Name": "Select linked walls",
+        "Hint": "Selects every wall linked to the hovered (or selected) wall."
+      }
+    }
+  }
+}

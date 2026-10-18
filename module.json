@@ -1,0 +1,37 @@
+{
+  "id": "palisade",
+  "title": "Palisade",
+  "description": "Murs auto-reliés pour Foundry VTT : les extrémités s'accrochent pendant le tracé, un mur posé au milieu d'un autre le coupe en T, et les jointures suivent quand on déplace un mur.",
+  "version": "0.1.0",
+  "compatibility": {
+    "minimum": "14",
+    "verified": "14"
+  },
+  "authors": [
+    {
+      "name": "Argan",
+      "url": "https://github.com/quill-and-seal"
+    }
+  ],
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "languages": [
+    {
+      "lang": "fr",
+      "name": "Français",
+      "path": "lang/fr.json"
+    },
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "url": "https://github.com/quill-and-seal/Palisade",
+  "manifest": "https://github.com/quill-and-seal/Palisade/releases/latest/download/module.json",
+  "download": "https://github.com/quill-and-seal/Palisade/releases/download/v0.1.0/module.zip",
+  "bugs": "https://github.com/quill-and-seal/Palisade/issues",
+  "license": "LICENSE",
+  "readme": "README.md"
+}

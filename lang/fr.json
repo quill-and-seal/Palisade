@@ -1,0 +1,35 @@
+{
+  "PALISADE": {
+    "Controls": {
+      "Toggle": "Palisade : murs auto-reliés"
+    },
+    "Settings": {
+      "Enabled": {
+        "Name": "Murs auto-reliés",
+        "Hint": "Accroche les murs entre eux pendant le tracé et garde les jointures quand tu les déplaces. Se coupe aussi avec le bouton chaîne dans les outils des murs. Propre à ce navigateur."
+      },
+      "SnapDistance": {
+        "Name": "Distance d'accroche (px)",
+        "Hint": "Une extrémité posée à moins de cette distance d'un autre mur s'y colle : à son extrémité en priorité, sinon à son milieu. 0 désactive l'accroche."
+      },
+      "MoveJoints": {
+        "Name": "Jointures qui suivent",
+        "Hint": "Quand tu déplaces une extrémité ou un mur, les murs qui partageaient ce point le suivent au lieu de se détacher."
+      },
+      "AutoSplit": {
+        "Name": "Coupure en T",
+        "Hint": "Un mur dont l'extrémité tombe au milieu d'un autre coupe celui-ci en deux, pour que chaque morceau reste relié."
+      },
+      "SkipDoors": {
+        "Name": "Ne jamais couper les portes",
+        "Hint": "Une porte touchée en son milieu reste entière."
+      }
+    },
+    "Keybindings": {
+      "SelectConnected": {
+        "Name": "Sélectionner les murs reliés",
+        "Hint": "Sélectionne tous les murs reliés au mur survolé (ou sélectionné)."
+      }
+    }
+  }
+}
