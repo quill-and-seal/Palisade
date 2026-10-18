@@ -1,8 +1,12 @@
 # Changelog
 
-## 0.1.8
+## 0.1.9
 
 - Pinceau : relâcher le trait affiche l'aperçu ; le clic de validation ouvre le cadran à l'endroit cliqué (bouton central sous le curseur), et les murs sont créés par son bouton « Appliquer » (« Annuler » les abandonne ; Entrée et Échap au clavier).
+
+## 0.1.8
+
+- Pinceau : le cadran s'ouvre là où le trait est lâché, bouton central sous le curseur (un coup de molette règle aussitôt la précision).
 - Soudure : un mur plus court que la distance d'accroche reste soudé par son extrémité la plus proche (il gardait sa position d'origine et se détachait de ses voisins).
 - Accroche : la distance d'accroche se mesure à l'écran (12 px), même sensation à tout zoom ; le pinceau soude avec la même distance et ses murs ne sont plus ré-accrochés un par un.
 
