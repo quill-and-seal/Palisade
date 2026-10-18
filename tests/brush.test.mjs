@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { inflateSync } from "node:zlib";
 import { snapStroke, simplify, resample } from "../scripts/brush.js";
 
 /* Générateur pseudo-aléatoire déterministe */
@@ -191,4 +193,52 @@ test("deux murs parallèles : le plus proche du trait l'emporte", () => {
 
 test("simplification : une ligne presque droite devient un segment", () => {
   assert.deepEqual(simplify([[0, 0], [10, 1], [20, -1], [30, 0]], 2), [[0, 0], [30, 0]]);
+});
+
+test("capture du champignon : la boucle suit le contour du dessin, sans pointes inventées", () => {
+  // capture d'Argan, trait et aperçu effacés, réduite au quart et recadrée ; le monde est en pixels de la capture
+  const blob = inflateSync(readFileSync(new URL("./fixtures-champignon.rgba.z", import.meta.url)));
+  const [width, height] = new Uint32Array(blob.buffer, blob.byteOffset, 2);
+  const data = new Uint8Array(blob.buffer, blob.byteOffset + 8, width * height * 4);
+  const image = { width, height, data, originX: 160, originY: 40, scale: 0.25 };
+  const stroke = [[465, 297], [430, 282], [380, 265], [330, 240], [308, 215], [310, 170], [330, 135], [380, 115], [450, 105], [530, 102], [568, 108], [620, 125], [680, 150], [730, 190], [770, 230], [800, 270], [825, 310], [832, 345], [825, 370], [770, 370], [700, 365], [660, 355], [610, 340], [608, 380], [612, 430], [605, 480], [580, 510], [560, 540], [540, 600], [528, 660], [528, 720], [532, 790], [535, 860], [525, 920], [505, 960], [470, 1010], [420, 1020], [340, 1020], [275, 1000], [255, 960], [262, 900], [280, 860], [300, 820], [320, 770], [345, 720], [370, 670], [395, 630], [410, 590], [430, 540], [425, 500], [400, 470], [395, 440], [420, 400], [450, 360], [465, 320], [468, 300]];
+  const res = snapStroke(stroke, image, { radius: 48 });
+  assert.equal(res.ok, true);
+  assert.equal(res.closed, true);
+  // distance (px d'image) de chaque point des segments au pixel sombre le plus proche
+  const dist = new Float32Array(width * height).fill(Infinity);
+  const queue = [];
+  for (let i = 0; i < width * height; i++) {
+    if (0.299 * data[i * 4] + 0.587 * data[i * 4 + 1] + 0.114 * data[i * 4 + 2] < 95) {
+      dist[i] = 0;
+      queue.push(i);
+    }
+  }
+  for (let h = 0; h < queue.length; h++) {
+    const i = queue[h];
+    const x = i % width;
+    const y = (i - x) / width;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+      const j = ny * width + nx;
+      if (dist[j] > dist[i] + 1) {
+        dist[j] = dist[i] + 1;
+        queue.push(j);
+      }
+    }
+  }
+  let worst = 0;
+  for (let i = 0; i < res.points.length - 1; i++) {
+    const [a, b] = [res.points[i], res.points[i + 1]];
+    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4));
+    for (let k = 0; k <= n; k++) {
+      const x = Math.round((a[0] + ((b[0] - a[0]) * k) / n - 160) / 4);
+      const y = Math.round((a[1] + ((b[1] - a[1]) * k) / n - 40) / 4);
+      worst = Math.max(worst, dist[Math.min(height - 1, Math.max(0, y)) * width + Math.min(width - 1, Math.max(0, x))]);
+    }
+  }
+  // la version qui reconstruisait des angles sur les courbes s'écartait jusqu'à 11 px
+  assert.ok(worst <= 8, `un segment s'écarte de ${worst} px d'image du contour : ${JSON.stringify(res.points)}`);
 });

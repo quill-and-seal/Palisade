@@ -516,6 +516,7 @@ const BRUSH_DEFAULTS = {
 const RIDGE_WIDTHS = [1, 2, 3, 5, 8, 12, 16];
 const STEP_WIDTHS = [3, 6, 10];
 const MARGIN = 32; // contexte lu autour de la zone, pour voir les deux côtés d'un mur épais
+const ON_WALL = 0.5; // force à partir de laquelle un ancrage est sur un mur
 const TRIM = 0.35; // force sous laquelle un bout de chemin ne longe plus de mur
 const WAYPOINT_SAMPLES = 12; // un ancrage tous les 12 échantillons (échantillons tous les R/3 ≈ 4R)
 
@@ -609,8 +610,11 @@ function simplify(points, tolerance) {
  * Angles vifs : deux longs segments reliés par de petits segments de transition (un coin
  * arrondi) sont prolongés jusqu'à leur intersection.
  * @param {number} shortLength  longueur en dessous de laquelle un segment est une transition
+ * @param {number[][]} [guide]   chemin réellement suivi : un angle reconstruit à plus de `maxGap`
+ *                               de ce chemin est refusé (une courbe n'a pas d'angle à inventer)
+ * @param {number} [maxGap]
  */
-function sharpenCorners(points, shortLength) {
+function sharpenCorners(points, shortLength, guide = null, maxGap = Infinity) {
   if (points.length < 4) return points.map((p) => [p[0], p[1]]);
   const out = [[points[0][0], points[0][1]]];
   let i = 1;
@@ -621,7 +625,8 @@ function sharpenCorners(points, shortLength) {
     const a1 = points[i];
     if (j > i && j < points.length - 1 && dist(a0, a1) >= shortLength) {
       const corner = intersect(a0, a1, points[j], points[j + 1]);
-      if (corner && dist(corner, a1) < shortLength * 2 && dist(corner, points[j]) < shortLength * 2) {
+      const nearGuide = !guide || guide.some((g) => dist(g, corner ?? g) <= maxGap);
+      if (corner && nearGuide && dist(corner, a1) < shortLength * 2 && dist(corner, points[j]) < shortLength * 2) {
         out.push(corner);
         i = j + 1;
         continue;
@@ -1141,17 +1146,19 @@ function snapStroke(stroke, image, options = {}) {
   for (let k = WAYPOINT_SAMPLES; k < along.length - WAYPOINT_SAMPLES / 2; k += WAYPOINT_SAMPLES) waypoints.push(k);
   if (along.length > 1) waypoints.push(along.length - 1);
 
-  const anchors = [];
-  for (let w = 0; w < waypoints.length; w++) {
-    const k = waypoints[w];
-    const isEnd = w === 0 || w === waypoints.length - 1;
-    const a = anchorNear(along[k]);
-    if (a < 0) continue;
-    // Trait ouvert : seuls le début et la fin sont ancrés, le chemin choisit la route la plus
-    // forte de bout en bout (un ancrage intermédiaire peut tomber sur un joint de sol et forcer
-    // un détour). Une boucle fermée garde ses ancrages intermédiaires pour en faire le tour.
-    if (!isEnd && !closed) continue;
-    anchors.push({ sample: k, index: a });
+  // Trait ouvert : seuls le début et la fin sont ancrés, le chemin choisit la route la plus
+  // forte de bout en bout (un ancrage intermédiaire peut tomber sur un joint de sol et forcer un
+  // détour). Boucle fermée : il faut des ancrages intermédiaires pour en faire le tour ; on garde
+  // ceux posés sur un mur, et au moins les deux du tiers et des deux tiers.
+  const candidates = waypoints.map((k, w) => ({ sample: k, index: anchorNear(along[k]), end: w === 0 || w === waypoints.length - 1 }));
+  let anchors = candidates.filter((c) => c.index >= 0 && c.end);
+  if (closed) {
+    const inner = candidates.filter((c) => c.index >= 0 && !c.end);
+    let kept = inner.filter((c) => strength[c.index] >= ON_WALL);
+    if (kept.length < 2 && inner.length >= 2) {
+      kept = [inner[Math.floor(inner.length / 3)], inner[Math.floor((2 * inner.length) / 3)]];
+    }
+    anchors = [anchors[0], ...kept, anchors[anchors.length - 1]].filter(Boolean);
   }
   if (closed && anchors.length > 2) anchors[anchors.length - 1].index = anchors[0].index;
   if (anchors.length < 2) return fallback();
@@ -1201,11 +1208,13 @@ function snapStroke(stroke, image, options = {}) {
   // l'épaisseur mesurée du mur (médiane le long du chemin), en mode bande.
   const widths = kept.map((i) => width[i]).sort((a, b) => a - b);
   const thickness = (widths[widths.length >> 1] * f) / sc;
-  const tolerance = Math.max(opt.simplify, thickness * 0.35 * weights.ridge);
+  // Bornée : une ombre portée floue autour d'un dessin gonfle l'épaisseur mesurée.
+  const tolerance = Math.max(opt.simplify, Math.min(6, thickness * 0.35 * weights.ridge));
   const path = kept.map(toWorld);
   const shortLength = Math.max(10, tolerance * 4);
+  const corners = sharpenCorners(simplify(smoothPolyline(path, 2), tolerance), shortLength, path, Math.max(6, tolerance * 2));
   // seconde passe sur les sommets : retire les faux angles presque alignés laissés par la première
-  let points = round(simplify(sharpenCorners(simplify(smoothPolyline(path, 2), tolerance), shortLength), tolerance));
+  let points = round(simplify(corners, tolerance));
   points = points.filter((p, i) => i === 0 || p[0] !== points[i - 1][0] || p[1] !== points[i - 1][1]);
   if (!closed) points = dropEndHooks(points, Math.max(shortLength, opt.radius * 0.5));
   if (points.length < 2) return fallback(confidence, weights);
