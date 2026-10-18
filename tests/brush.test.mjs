@@ -144,6 +144,51 @@ test("mur de pierre entre herbe et parquet, même luminosité que l'herbe : le t
   assert.equal(res.points.length, 2);
 });
 
+/** Parchemin avec grille légère (lignes tous les 70 px) et murs de 10 px, comme la démo. */
+function parchment(w, h, walls, seed = 21) {
+  const rand = rng(seed);
+  return makeImage(w, h, (x, y) => {
+    for (const [x0, y0, x1, y1] of walls) {
+      if (x >= x0 - 5 && x <= x1 + 5 && y >= y0 - 5 && y <= y1 + 5) return [43, 35, 28];
+    }
+    const n = (rand() - 0.5) * 16;
+    const grid = x % 70 === 0 || y % 70 === 0 ? -14 : 0;
+    return [226 + n + grid, 211 + n + grid, 176 + n * 0.8 + grid];
+  });
+}
+
+test("capture d'Argan : un angle tracé large et décalé suit le mur, pas la grille", () => {
+  // mur vertical x = 600 qui tourne à droite en y = 250 ; trait décalé de 13 px à gauche
+  // et de 30 px sous l'angle, posé pile sur une ligne de la grille (y = 280)
+  const img = parchment(800, 400, [[600, 100, 600, 250], [600, 250, 760, 250]]);
+  const stroke = [[588, 205], [587, 230], [587, 260], [590, 279], [610, 281], [635, 281], [653, 282]];
+  const res = snapStroke(stroke, img);
+  assert.equal(res.ok, true, JSON.stringify(res));
+  for (const p of res.points) {
+    const onVertical = Math.abs(p[0] - 600) <= 3 && p[1] <= 253;
+    const onHorizontal = Math.abs(p[1] - 250) <= 3 && p[0] >= 597;
+    assert.ok(onVertical || onHorizontal, `sommet hors du mur : ${p} dans ${JSON.stringify(res.points)}`);
+  }
+  assert.equal(res.points.length, 3, JSON.stringify(res.points));
+  assert.ok(Math.hypot(res.points[1][0] - 600, res.points[1][1] - 250) <= 4, `angle en ${res.points[1]}`);
+});
+
+test("trait qui déborde au-delà de la fin d'un mur : le bout sans mur est retiré", () => {
+  const img = parchment(600, 300, [[100, 150, 400, 150]]);
+  const res = snapStroke([[110, 160], [300, 162], [520, 160]], img);
+  assert.equal(res.ok, true);
+  const xs = res.points.map((p) => p[0]);
+  assert.ok(Math.max(...xs) <= 415, `le mur dépasse la fin du mur dessiné : ${JSON.stringify(res.points)}`);
+  assert.ok(maxDistanceToLine(res.points, 1, 150) <= 2, JSON.stringify(res.points));
+});
+
+test("deux murs parallèles : le plus proche du trait l'emporte", () => {
+  const img = parchment(600, 300, [[50, 100, 550, 100], [50, 150, 550, 150]]);
+  const res = snapStroke([[80, 140], [300, 141], [520, 139]], img);
+  assert.equal(res.ok, true);
+  assert.ok(maxDistanceToLine(res.points, 1, 150) <= 2, JSON.stringify(res.points));
+});
+
 test("simplification : une ligne presque droite devient un segment", () => {
   assert.deepEqual(simplify([[0, 0], [10, 1], [20, -1], [30, 0]], 2), [[0, 0], [30, 0]]);
 });

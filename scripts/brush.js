@@ -1,39 +1,40 @@
 /**
- * Palisade — pinceau : colle un trait dessiné à main levée sur la paroi dessinée dans l'image.
+ * Palisade — pinceau : colle un trait dessiné à main levée sur les murs dessinés dans l'image.
  *
- * Fonctionnement :
- *   1. Le trait est rééchantillonné et lissé : c'est l'axe d'un « couloir » de ±radius px.
- *   2. L'image est lue perpendiculairement au trait en chaque point : on obtient un couloir redressé.
- *   3. Deux détecteurs y cherchent la paroi :
- *        - trait : une bande plus sombre (ou plus claire) que ses deux côtés, à plusieurs épaisseurs
- *                  → murs dessinés, on vise le milieu du trait ;
- *        - bord  : un changement de matière entre les deux côtés (couleur moyenne)
- *                  → cartes réalistes, pierre contre bois.
- *      Chaque détecteur est noté sur ce couloir précis (netteté de son pic), et le mélange suit
- *      cette note : le pinceau s'adapte à chaque carte et même à chaque trait.
- *   4. Un chemin continu traverse le couloir (programmation dynamique) : il suit la paroi la plus
- *      marquée sans sauter d'un mur à l'autre, avec une légère préférence pour le trait dessiné.
- *   5. Le chemin est simplifié en quelques segments (Ramer-Douglas-Peucker).
+ * Fonctionnement (suivi de contour, comme les « ciseaux intelligents ») :
+ *   1. On lit l'image dans une zone autour du trait.
+ *   2. Une carte de « force de mur » est calculée en chaque pixel, dans quatre directions,
+ *      avec deux détecteurs :
+ *        - bande : une bande dont la couleur diffère de ses deux côtés (trait dessiné, mur de
+ *                  pierre entre herbe et parquet…) → on vise le milieu du mur ;
+ *        - bord  : un changement de matière d'un côté à l'autre (parquet contre dalles).
+ *      Chaque détecteur est noté sur la zone, et le mélange suit cette note : le pinceau
+ *      s'adapte à chaque carte et à chaque trait.
+ *   3. Des points d'ancrage sont posés sur les murs les plus forts près du début et de la fin
+ *      du trait (et tout autour pour une boucle fermée). Entre deux ancrages, on cherche le chemin le moins coûteux (Dijkstra) :
+ *      il suit les murs et tourne avec eux, avec une préférence pour ceux proches du trait.
+ *   4. Les bouts du chemin qui ne longent aucun mur (trait qui déborde) sont retirés.
+ *   5. Le chemin est simplifié en quelques segments, avec des angles vifs.
  *
- * Aucune dépendance : le même fichier sert dans Foundry, dans la page de test et dans les tests Node.
+ * Aucune dépendance : le même fichier sert dans Foundry, dans le banc d'essai et dans les tests.
  */
 
 export const BRUSH_DEFAULTS = {
-  spacing: 4, // écart entre deux échantillons du trait (px)
-  radius: 24, // demi-largeur du couloir de recherche (px)
-  maxStep: 2, // décalage latéral maximal d'un échantillon au suivant (px)
-  smoothness: 0.08, // pénalité de virage du chemin
-  pull: 0.2, // préférence pour rester près du trait dessiné
-  simplify: 2.5, // tolérance de simplification (px)
-  minConfidence: 0.22 // en dessous, aucune paroi nette : le trait est gardé tel quel
+  radius: 48, // distance maximale entre le trait et le mur cherché (unités monde)
+  pull: 0.3, // préférence pour les murs proches du trait
+  simplify: 2.5, // tolérance de simplification (unités monde)
+  minConfidence: 0.3, // en dessous, aucun mur net : le trait est gardé tel quel
+  maxPixels: 600000 // au-delà, la zone est lue à résolution réduite
 };
 
 const RIDGE_WIDTHS = [1, 2, 3, 5, 8, 12, 16];
 const STEP_WIDTHS = [3, 6, 10];
-const MARGIN = 32; // = h + g de la plus grande épaisseur cherchée (16 + 16)
+const MARGIN = 32; // contexte lu autour de la zone, pour voir les deux côtés d'un mur épais
+const TRIM = 0.35; // force sous laquelle un bout de chemin ne longe plus de mur
+const WAYPOINT_SAMPLES = 12; // un ancrage tous les 12 échantillons (échantillons tous les R/3 ≈ 4R)
 
 /* -------------------------------------------- */
-/*  Trait                                       */
+/*  Polylignes                                  */
 /* -------------------------------------------- */
 
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -41,6 +42,12 @@ const smoothstep = (a, b, x) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
   return t * t * (3 - 2 * t);
 };
+
+export function polylineLength(points) {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) total += dist(points[i - 1], points[i]);
+  return total;
+}
 
 /** Points régulièrement espacés le long d'une polyligne. */
 export function resample(points, spacing) {
@@ -113,8 +120,8 @@ export function simplify(points, tolerance) {
 }
 
 /**
- * Angles vifs : deux longs segments reliés par de petits segments de transition (le lissage
- * arrondit les coins) sont prolongés jusqu'à leur intersection.
+ * Angles vifs : deux longs segments reliés par de petits segments de transition (un coin
+ * arrondi) sont prolongés jusqu'à leur intersection.
  * @param {number} shortLength  longueur en dessous de laquelle un segment est une transition
  */
 export function sharpenCorners(points, shortLength) {
@@ -122,17 +129,13 @@ export function sharpenCorners(points, shortLength) {
   const out = [[points[0][0], points[0][1]]];
   let i = 1;
   while (i < points.length) {
-    // out[last] est le début du segment A = out[last] → points[i]
     let j = i;
     while (j < points.length - 1 && dist(points[j], points[j + 1]) < shortLength) j++;
-    // transition : points[i] … points[j], segment B = points[j] → points[j + 1]
     const a0 = out[out.length - 1];
     const a1 = points[i];
     if (j > i && j < points.length - 1 && dist(a0, a1) >= shortLength) {
-      const b0 = points[j];
-      const b1 = points[j + 1];
-      const corner = intersect(a0, a1, b0, b1);
-      if (corner && dist(corner, a1) < shortLength * 2 && dist(corner, b0) < shortLength * 2) {
+      const corner = intersect(a0, a1, points[j], points[j + 1]);
+      if (corner && dist(corner, a1) < shortLength * 2 && dist(corner, points[j]) < shortLength * 2) {
         out.push(corner);
         i = j + 1;
         continue;
@@ -142,6 +145,33 @@ export function sharpenCorners(points, shortLength) {
     i++;
   }
   return out;
+}
+
+/**
+ * Crochets d'extrémité : un dernier (ou premier) segment court qui part de travers est un reste
+ * du bout de trait sans mur (fin de mur dessiné, coin) ; on le retire.
+ */
+export function dropEndHooks(points, maxLength) {
+  const pts = points.map((p) => [p[0], p[1]]);
+  const turn = (a, b, c) => {
+    const ux = b[0] - a[0];
+    const uy = b[1] - a[1];
+    const vx = c[0] - b[0];
+    const vy = c[1] - b[1];
+    const cos = (ux * vx + uy * vy) / ((Math.hypot(ux, uy) * Math.hypot(vx, vy)) || 1);
+    return Math.acos(Math.max(-1, Math.min(1, cos)));
+  };
+  const limit = (30 * Math.PI) / 180;
+  while (pts.length > 2) {
+    const n = pts.length;
+    if (dist(pts[n - 2], pts[n - 1]) < maxLength && turn(pts[n - 3], pts[n - 2], pts[n - 1]) > limit) pts.pop();
+    else break;
+  }
+  while (pts.length > 2) {
+    if (dist(pts[0], pts[1]) < maxLength && turn(pts[2], pts[1], pts[0]) > limit) pts.shift();
+    else break;
+  }
+  return pts;
 }
 
 /** Intersection des droites (a0 a1) et (b0 b1), si elles font un angle d'au moins 20°. */
@@ -158,201 +188,339 @@ function intersect(a0, a1, b0, b1) {
 }
 
 /* -------------------------------------------- */
-/*  Lecture de l'image                          */
+/*  Détecteurs 1D (sur une ligne de pixels)     */
 /* -------------------------------------------- */
 
-/**
- * Lecture bilinéaire. `image` : { width, height, data (RGBA), originX?, originY?, scale? }.
- * Les points sont en coordonnées « monde » ; (originX, originY) est la position monde du pixel (0, 0)
- * et `scale` le nombre de pixels d'image par unité monde.
- */
-function makeSampler(image) {
-  const { width: w, height: h, data } = image;
-  const ox = image.originX ?? 0;
-  const oy = image.originY ?? 0;
-  const sc = image.scale ?? 1;
-  return (x, y, out) => {
-    let ix = (x - ox) * sc;
-    let iy = (y - oy) * sc;
-    ix = Math.min(Math.max(ix, 0), w - 1);
-    iy = Math.min(Math.max(iy, 0), h - 1);
-    const x0 = Math.floor(ix);
-    const y0 = Math.floor(iy);
-    const x1 = Math.min(x0 + 1, w - 1);
-    const y1 = Math.min(y0 + 1, h - 1);
-    const fx = ix - x0;
-    const fy = iy - y0;
-    const i00 = (y0 * w + x0) * 4;
-    const i10 = (y0 * w + x1) * 4;
-    const i01 = (y1 * w + x0) * 4;
-    const i11 = (y1 * w + x1) * 4;
-    for (let c = 0; c < 3; c++) {
-      const top = data[i00 + c] * (1 - fx) + data[i10 + c] * fx;
-      const bot = data[i01 + c] * (1 - fx) + data[i11 + c] * fx;
-      out[c] = top * (1 - fy) + bot * fy;
-    }
-  };
-}
+// Sommes cumulées réutilisées d'une ligne à l'autre (r, g, b entrelacés : pre[3 * o + c])
+let PRE = new Float64Array(0);
 
-/* -------------------------------------------- */
-/*  Détecteurs                                  */
-/* -------------------------------------------- */
-
-function percentile(values, q) {
-  const step = Math.max(1, Math.floor(values.length / 4000));
-  const sample = [];
-  for (let i = 0; i < values.length; i += step) sample.push(values[i]);
-  sample.sort((a, b) => a - b);
-  return sample[Math.min(sample.length - 1, Math.floor(q * sample.length))] || 0;
-}
-
-function normalize(values) {
-  const top = percentile(values, 0.98) || 1;
-  for (let i = 0; i < values.length; i++) values[i] = Math.min(1, values[i] / top);
-}
-
-/** Netteté d'un détecteur : écart moyen entre son pic et sa médiane, ligne par ligne. */
-function sharpness(values, S, W) {
-  let total = 0;
-  const row = new Float32Array(W);
-  for (let s = 0; s < S; s++) {
-    let max = 0;
-    for (let o = 0; o < W; o++) {
-      row[o] = values[s * W + o];
-      if (row[o] > max) max = row[o];
-    }
-    row.sort();
-    total += max - row[W >> 1];
+function lineSums(rgb, n) {
+  if (PRE.length < 3 * (n + 1)) PRE = new Float64Array(3 * (n + 1) * 2);
+  const pre = PRE;
+  pre[0] = pre[1] = pre[2] = 0;
+  for (let o = 0; o < n; o++) {
+    const a = 3 * o;
+    pre[a + 3] = pre[a] + rgb[a];
+    pre[a + 4] = pre[a + 1] + rgb[a + 1];
+    pre[a + 5] = pre[a + 2] + rgb[a + 2];
   }
-  return total / S;
+  return pre;
 }
 
 /**
- * Bande dont la couleur diffère de ses deux côtés (trait dessiné, mur de pierre entre herbe et
- * parquet…), à l'épaisseur la mieux adaptée. Une simple frontière de matière ne répond pas :
- * l'un des côtés y ressemble au centre.
+ * Bande dont la couleur diffère de ses deux côtés, à l'épaisseur la mieux adaptée.
+ * Mesure : distance de la couleur du centre au segment [couleur gauche, couleur droite].
+ * Un centre posé sur une frontière de matière est un mélange des deux côtés : il tombe sur le
+ * segment et ne répond pas. Une vraie bande de matière, ou un trait, en est loin.
+ * @param {Float32Array} rgb  ligne de n pixels (r, g, b entrelacés)
  */
-function ridgeDetector(RGB, S, W) {
-  const out = new Float32Array(S * W);
-  const pre = [new Float64Array(W + 1), new Float64Array(W + 1), new Float64Array(W + 1)];
-  const mean = (c, a, b) => (pre[c][b + 1] - pre[c][a]) / (b - a + 1);
-  const left = [0, 0, 0];
-  const right = [0, 0, 0];
-  const mid = [0, 0, 0];
-  for (let s = 0; s < S; s++) {
-    for (let c = 0; c < 3; c++) {
-      for (let o = 0; o < W; o++) pre[c][o + 1] = pre[c][o] + RGB[(s * W + o) * 3 + c];
-    }
-    for (let o = 0; o < W; o++) {
-      let best = 0;
-      for (const h of RIDGE_WIDTHS) {
-        const g = Math.max(2, h);
-        if (o - h - g < 0 || o + h + g >= W) continue;
-        // Distance de la couleur du centre au segment [gauche, droite] : un mélange des deux
-        // côtés (centre posé sur une frontière) tombe sur le segment, une bande de matière non.
-        let lr2 = 0;
-        let dot = 0;
-        for (let c = 0; c < 3; c++) {
-          left[c] = mean(c, o - h - g, o - h - 1);
-          right[c] = mean(c, o + h + 1, o + h + g);
-          mid[c] = mean(c, o - h, o + h);
-          lr2 += (right[c] - left[c]) ** 2;
-          dot += (mid[c] - left[c]) * (right[c] - left[c]);
-        }
-        const t = lr2 ? Math.min(1, Math.max(0, dot / lr2)) : 0;
-        let d2 = 0;
-        for (let c = 0; c < 3; c++) d2 += (mid[c] - left[c] - t * (right[c] - left[c])) ** 2;
-        const v = Math.sqrt(d2 / 3);
-        if (v > best) best = v;
+function ridgeLine(rgb, n, out, widthOut, mask) {
+  const pre = lineSums(rgb, n);
+  const nw = RIDGE_WIDTHS.length;
+  for (let o = 0; o < n; o++) {
+    out[o] = 0;
+    widthOut[o] = 0;
+    if (!mask[o]) continue;
+    let best = 0;
+    let bestH = 0;
+    for (let k = 0; k < nw; k++) {
+      const h = RIDGE_WIDTHS[k];
+      const g = h < 2 ? 2 : h;
+      if (o - h - g < 0 || o + h + g >= n) break;
+      // moyennes : gauche [o-h-g, o-h-1], centre [o-h, o+h], droite [o+h+1, o+h+g]
+      const la = 3 * (o - h - g);
+      const ma = 3 * (o - h);
+      const ra = 3 * (o + h + 1);
+      const rb = 3 * (o + h + g + 1);
+      const ig = 1 / g;
+      const im = 1 / (2 * h + 1);
+      const l0 = (pre[ma] - pre[la]) * ig, l1 = (pre[ma + 1] - pre[la + 1]) * ig, l2 = (pre[ma + 2] - pre[la + 2]) * ig;
+      const m0 = (pre[ra] - pre[ma]) * im, m1 = (pre[ra + 1] - pre[ma + 1]) * im, m2 = (pre[ra + 2] - pre[ma + 2]) * im;
+      const r0 = (pre[rb] - pre[ra]) * ig, r1 = (pre[rb + 1] - pre[ra + 1]) * ig, r2 = (pre[rb + 2] - pre[ra + 2]) * ig;
+      const d0 = r0 - l0, d1 = r1 - l1, d2 = r2 - l2;
+      const e0 = m0 - l0, e1 = m1 - l1, e2 = m2 - l2;
+      const lr2 = d0 * d0 + d1 * d1 + d2 * d2;
+      let t = lr2 ? (e0 * d0 + e1 * d1 + e2 * d2) / lr2 : 0;
+      t = t < 0 ? 0 : t > 1 ? 1 : t;
+      const f0 = e0 - t * d0, f1 = e1 - t * d1, f2 = e2 - t * d2;
+      const v = f0 * f0 + f1 * f1 + f2 * f2;
+      if (v > best) {
+        best = v;
+        bestH = h;
       }
-      out[s * W + o] = best;
     }
+    out[o] = Math.sqrt(best / 3);
+    widthOut[o] = 2 * bestH + 1;
   }
-  return out;
 }
 
 /** Changement de couleur moyenne entre les deux côtés d'un point. */
-function stepDetector(RGB, S, W) {
-  const out = new Float32Array(S * W);
-  const pre = [new Float64Array(W + 1), new Float64Array(W + 1), new Float64Array(W + 1)];
-  for (let s = 0; s < S; s++) {
-    for (let c = 0; c < 3; c++) {
-      for (let o = 0; o < W; o++) pre[c][o + 1] = pre[c][o] + RGB[(s * W + o) * 3 + c];
+function stepLine(rgb, n, out, mask) {
+  const pre = lineSums(rgb, n);
+  const nw = STEP_WIDTHS.length;
+  for (let o = 0; o < n; o++) {
+    out[o] = 0;
+    if (!mask[o]) continue;
+    let best = 0;
+    for (let k = 0; k < nw; k++) {
+      const w = STEP_WIDTHS[k];
+      if (o - w < 0 || o + w >= n) break;
+      // gauche [o-w, o-1], droite [o+1, o+w]
+      const la = 3 * (o - w);
+      const lb = 3 * o;
+      const ra = 3 * (o + 1);
+      const rb = 3 * (o + w + 1);
+      const iw = 1 / w;
+      const d0 = (pre[lb] - pre[la] - pre[rb] + pre[ra]) * iw;
+      const d1 = (pre[lb + 1] - pre[la + 1] - pre[rb + 1] + pre[ra + 1]) * iw;
+      const d2 = (pre[lb + 2] - pre[la + 2] - pre[rb + 2] + pre[ra + 2]) * iw;
+      const v = d0 * d0 + d1 * d1 + d2 * d2;
+      if (v > best) best = v;
     }
-    for (let o = 0; o < W; o++) {
-      let best = 0;
-      for (const w of STEP_WIDTHS) {
-        if (o - w < 0 || o + w >= W) continue;
-        let d2 = 0;
-        for (let c = 0; c < 3; c++) {
-          const left = (pre[c][o] - pre[c][o - w]) / w;
-          const right = (pre[c][o + w + 1] - pre[c][o + 1]) / w;
-          d2 += (left - right) ** 2;
-        }
-        const v = Math.sqrt(d2 / 3);
-        if (v > best) best = v;
-      }
-      out[s * W + o] = best;
-    }
+    out[o] = Math.sqrt(best / 3);
   }
-  return out;
-}
-
-/** Garde les colonnes [from, from + width) de chaque ligne. */
-function crop(values, S, W, from, width) {
-  const out = new Float32Array(S * width);
-  for (let s = 0; s < S; s++) out.set(values.subarray(s * W + from, s * W + from + width), s * width);
-  return out;
-}
-
-/** Moyenne le long du trait (lignes voisines) pour atténuer le bruit des textures. */
-function blurAlong(values, S, W, stride = 1, half = 1) {
-  const out = new Float32Array(values.length);
-  for (let s = 0; s < S; s++) {
-    const a = Math.max(0, s - half);
-    const b = Math.min(S - 1, s + half);
-    for (let o = 0; o < W * stride; o++) {
-      let sum = 0;
-      for (let k = a; k <= b; k++) sum += values[k * W * stride + o];
-      out[s * W * stride + o] = sum / (b - a + 1);
-    }
-  }
-  return out;
 }
 
 /* -------------------------------------------- */
-/*  Chemin                                      */
+/*  Zone de travail                             */
 /* -------------------------------------------- */
 
-function bestPath(cost, S, W, maxStep, smoothness) {
-  const acc = new Float32Array(S * W);
-  const back = new Int8Array(S * W);
-  for (let o = 0; o < W; o++) acc[o] = cost[o];
-  for (let s = 1; s < S; s++) {
-    for (let o = 0; o < W; o++) {
-      let best = Infinity;
-      let arg = 0;
-      for (let d = -maxStep; d <= maxStep; d++) {
-        const p = o + d;
-        if (p < 0 || p >= W) continue;
-        const v = acc[(s - 1) * W + p] + smoothness * d * d;
-        if (v < best) {
-          best = v;
-          arg = d;
+/** Lit la zone [x0, x0 + W) × [y0, y0 + H) de l'image réduite d'un facteur f, floutée 3×3. */
+function readRegion(image, x0, y0, W, H, f) {
+  const { width: iw, height: ih, data } = image;
+  const raw = new Float32Array(W * H * 3);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let count = 0;
+      for (let dy = 0; dy < f; dy++) {
+        const iy = (y0 + y) * f + dy;
+        if (iy < 0 || iy >= ih) continue;
+        for (let dx = 0; dx < f; dx++) {
+          const ix = (x0 + x) * f + dx;
+          if (ix < 0 || ix >= iw) continue;
+          const i = (iy * iw + ix) * 4;
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          count++;
         }
       }
-      acc[s * W + o] = best + cost[s * W + o];
-      back[s * W + o] = arg;
+      const o = (y * W + x) * 3;
+      raw[o] = count ? r / count : 0;
+      raw[o + 1] = count ? g / count : 0;
+      raw[o + 2] = count ? b / count : 0;
     }
   }
-  let o = 0;
-  for (let k = 1; k < W; k++) if (acc[(S - 1) * W + k] < acc[(S - 1) * W + o]) o = k;
-  const path = new Int16Array(S);
-  for (let s = S - 1; s >= 0; s--) {
-    path[s] = o;
-    o += back[s * W + o];
+  // flou 3×3 : atténue le grain des textures
+  const out = new Float32Array(W * H * 3);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      for (let c = 0; c < 3; c++) {
+        let s = 0;
+        let k = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          const yy = y + dy;
+          if (yy < 0 || yy >= H) continue;
+          for (let dx = -1; dx <= 1; dx++) {
+            const xx = x + dx;
+            if (xx < 0 || xx >= W) continue;
+            s += raw[(yy * W + xx) * 3 + c];
+            k++;
+          }
+        }
+        out[(y * W + x) * 3 + c] = s / k;
+      }
+    }
   }
-  return path;
+  return out;
+}
+
+/**
+ * Applique les détecteurs 1D le long des lignes de pixels dans quatre directions et garde,
+ * pour chaque pixel, la réponse la plus forte. Une ligne horizontale de pixels détecte les
+ * murs verticaux, une colonne les murs horizontaux, les diagonales les murs en biais.
+ * Seuls les pixels de `mask` sont calculés (les autres servent de contexte).
+ */
+function wallMaps(rgb, W, H, mask) {
+  const ridge = new Float32Array(W * H);
+  const step = new Float32Array(W * H);
+  const width = new Float32Array(W * H);
+  const maxLen = W + H;
+  const buf = new Float32Array(maxLen * 3);
+  const rOut = new Float32Array(maxLen);
+  const sOut = new Float32Array(maxLen);
+  const idx = new Int32Array(maxLen);
+  const wOut = new Float32Array(maxLen);
+  const mOut = new Uint8Array(maxLen);
+
+  const run = (x, y, dx, dy) => {
+    let n = 0;
+    let any = 0;
+    while (x >= 0 && x < W && y >= 0 && y < H) {
+      const i = y * W + x;
+      idx[n] = i;
+      mOut[n] = mask[i];
+      any |= mask[i];
+      buf[n * 3] = rgb[i * 3];
+      buf[n * 3 + 1] = rgb[i * 3 + 1];
+      buf[n * 3 + 2] = rgb[i * 3 + 2];
+      n++;
+      x += dx;
+      y += dy;
+    }
+    if (n < 5 || !any) return;
+    ridgeLine(buf, n, rOut, wOut, mOut);
+    stepLine(buf, n, sOut, mOut);
+    for (let k = 0; k < n; k++) {
+      const i = idx[k];
+      if (rOut[k] > ridge[i]) {
+        ridge[i] = rOut[k];
+        // le long d'une diagonale, un pas vaut √2 px
+        width[i] = dx && dy ? wOut[k] * Math.SQRT2 : wOut[k];
+      }
+      if (sOut[k] > step[i]) step[i] = sOut[k];
+    }
+  };
+
+  for (let y = 0; y < H; y++) run(0, y, 1, 0);
+  for (let x = 0; x < W; x++) run(x, 0, 0, 1);
+  for (let x = 0; x < W; x++) run(x, 0, 1, 1);
+  for (let y = 1; y < H; y++) run(0, y, 1, 1);
+  for (let x = 0; x < W; x++) run(x, H - 1, 1, -1);
+  for (let y = 0; y < H - 1; y++) run(0, y, 1, -1);
+  return { ridge, step, width };
+}
+
+/** Distance (par excès d'au plus un demi-échantillon) de chaque pixel au trait, dans un rayon R. */
+function stampDistance(samples, W, H, R, out, box) {
+  const R2 = R * R;
+  for (const [sx, sy] of samples) {
+    const xa = Math.max(0, Math.floor(sx - R));
+    const xb = Math.min(W - 1, Math.ceil(sx + R));
+    const ya = Math.max(0, Math.floor(sy - R));
+    const yb = Math.min(H - 1, Math.ceil(sy + R));
+    if (xa > xb || ya > yb) continue;
+    box[0] = Math.min(box[0], xa);
+    box[1] = Math.min(box[1], ya);
+    box[2] = Math.max(box[2], xb);
+    box[3] = Math.max(box[3], yb);
+    for (let y = ya; y <= yb; y++) {
+      for (let x = xa; x <= xb; x++) {
+        const d2 = (x - sx) ** 2 + (y - sy) ** 2;
+        if (d2 > R2) continue;
+        const i = y * W + x;
+        const d = Math.sqrt(d2);
+        if (d < out[i]) out[i] = d;
+      }
+    }
+  }
+}
+
+function percentile(values, q, mask) {
+  const sample = [];
+  const step = Math.max(1, Math.floor(values.length / 20000));
+  for (let i = 0; i < values.length; i += step) if (!mask || mask[i]) sample.push(values[i]);
+  if (!sample.length) return 0;
+  sample.sort((a, b) => a - b);
+  return sample[Math.min(sample.length - 1, Math.floor(q * sample.length))];
+}
+
+/* -------------------------------------------- */
+/*  Chemin le moins coûteux                     */
+/* -------------------------------------------- */
+
+class Heap {
+  constructor() {
+    this.keys = [];
+    this.vals = [];
+  }
+  get size() {
+    return this.keys.length;
+  }
+  push(key, val) {
+    const k = this.keys;
+    const v = this.vals;
+    let i = k.length;
+    k.push(key);
+    v.push(val);
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (k[p] <= key) break;
+      k[i] = k[p];
+      v[i] = v[p];
+      i = p;
+    }
+    k[i] = key;
+    v[i] = val;
+  }
+  pop() {
+    const k = this.keys;
+    const v = this.vals;
+    const top = v[0];
+    const lastK = k.pop();
+    const lastV = v.pop();
+    if (k.length) {
+      let i = 0;
+      for (;;) {
+        let c = 2 * i + 1;
+        if (c >= k.length) break;
+        if (c + 1 < k.length && k[c + 1] < k[c]) c++;
+        if (k[c] >= lastK) break;
+        k[i] = k[c];
+        v[i] = v[c];
+        i = c;
+      }
+      k[i] = lastK;
+      v[i] = lastV;
+    }
+    return top;
+  }
+}
+
+const NEIGHBORS = [
+  [1, 0, 1], [-1, 0, 1], [0, 1, 1], [0, -1, 1],
+  [1, 1, Math.SQRT2], [1, -1, Math.SQRT2], [-1, 1, Math.SQRT2], [-1, -1, Math.SQRT2]
+];
+
+/** Dijkstra de `from` à `to` sur le coût par pixel `cost` (Infinity = interdit), dans `box`. */
+function cheapestPath(cost, W, from, to, box, acc, prev) {
+  const [xa, ya, xb, yb] = box;
+  for (let y = ya; y <= yb; y++) acc.fill(Infinity, y * W + xa, y * W + xb + 1);
+  const heap = new Heap();
+  acc[from] = 0;
+  prev[from] = -1;
+  heap.push(0, from);
+  while (heap.size) {
+    const i = heap.pop();
+    if (i === to) break;
+    const base = acc[i];
+    const x = i % W;
+    const y = (i - x) / W;
+    for (const [dx, dy, len] of NEIGHBORS) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < xa || nx > xb || ny < ya || ny > yb) continue;
+      const j = ny * W + nx;
+      const c = cost[j];
+      if (c === Infinity) continue;
+      const v = base + ((cost[i] + c) / 2) * len;
+      if (v < acc[j]) {
+        acc[j] = v;
+        prev[j] = i;
+        heap.push(v, j);
+      }
+    }
+  }
+  if (acc[to] === Infinity) return null;
+  const path = [];
+  for (let i = to; i !== -1; i = prev[i]) {
+    path.push(i);
+    if (i === from) break;
+  }
+  return path.reverse();
 }
 
 /* -------------------------------------------- */
@@ -360,105 +528,200 @@ function bestPath(cost, S, W, maxStep, smoothness) {
 /* -------------------------------------------- */
 
 /**
- * Colle un trait sur la paroi dessinée dans l'image.
+ * Colle un trait sur les murs dessinés dans l'image.
  * @param {number[][]} stroke  points du trait, en coordonnées monde
- * @param {object} image       { width, height, data, originX?, originY?, scale? } (voir makeSampler)
- * @param {object} [options]   voir BRUSH_DEFAULTS
- * @returns {{ok: boolean, points: number[][], confidence: number, weights: {ridge: number, step: number},
- *            closed: boolean, path: number[][]}}
- *   ok         : une paroi nette a été trouvée (sinon `points` est le trait simplifié, non collé)
- *   points     : sommets des murs à créer, arrondis
- *   confidence : 0–1, force moyenne de la paroi suivie
- *   weights    : part de chaque détecteur (trait sombre / bord de matière)
- *   path       : chemin collé avant simplification (pour l'aperçu)
+ * @param {{width: number, height: number, data: ArrayLike<number>, originX?: number,
+ *          originY?: number, scale?: number}} image
+ *        pixels RGBA ; (originX, originY) est la position monde du pixel (0, 0) et `scale` le
+ *        nombre de pixels d'image par unité monde
+ * @param {object} [options]  voir BRUSH_DEFAULTS
+ * @returns {{ok: boolean, points: number[][], confidence: number,
+ *            weights: {ridge: number, step: number}, closed: boolean, path: number[][]}}
+ *   ok         : des murs nets ont été trouvés (sinon `points` est le trait simplifié, non collé)
+ *   points     : sommets des murs à créer, arrondis, en coordonnées monde
+ *   confidence : 0–1, force moyenne des murs suivis
+ *   weights    : part de chaque détecteur (bande / bord de matière)
+ *   path       : chemin suivi avant simplification (pour l'aperçu)
  */
 export function snapStroke(stroke, image, options = {}) {
   const opt = { ...BRUSH_DEFAULTS, ...options };
-  const R = Math.max(4, Math.round(opt.radius));
-  const W = 2 * R + 1;
+  const sc = image.scale ?? 1;
+  const ox = image.originX ?? 0;
+  const oy = image.originY ?? 0;
 
-  const rawLength = stroke.slice(1).reduce((sum, p, i) => sum + dist(stroke[i], p), 0);
-  const closed = stroke.length > 2 && rawLength > 6 * R && dist(stroke[0], stroke[stroke.length - 1]) < R;
+  const rawLength = polylineLength(stroke);
+  const closed = stroke.length > 2 && rawLength > 6 * opt.radius &&
+    dist(stroke[0], stroke[stroke.length - 1]) < opt.radius * 0.75;
   const round = (pts) => pts.map((p) => [Math.round(p[0]), Math.round(p[1])]);
-  const fallback = (confidence = 0, weights = { ridge: 0, step: 0 }) => {
-    const pts = round(simplify(smoothPolyline(resample(stroke, opt.spacing), 2), opt.simplify));
+  const closeLoop = (pts) => {
     if (closed && pts.length > 2) pts[pts.length - 1] = [...pts[0]];
+    return pts;
+  };
+  const fallback = (confidence = 0, weights = { ridge: 0, step: 0 }) => {
+    const pts = closeLoop(round(simplify(smoothPolyline(resample(stroke, 4), 2), opt.simplify)));
     return { ok: false, points: pts, confidence, weights, closed, path: pts };
   };
+  if (stroke.length < 2 || rawLength < 2) return fallback();
 
-  const axis = smoothPolyline(resample(stroke, opt.spacing), 3);
-  const S = axis.length;
-  if (S < 3) return fallback();
-
-  // Normales au trait
-  const normals = axis.map((_, i) => {
-    const a = axis[Math.max(0, i - 2)];
-    const b = axis[Math.min(S - 1, i + 2)];
-    const tx = b[0] - a[0];
-    const ty = b[1] - a[1];
-    const len = Math.hypot(tx, ty) || 1;
-    return [-ty / len, tx / len];
-  });
-
-  // Couloir redressé : S lignes × WF colonnes. La bande lue déborde de MARGIN px de chaque côté
-  // du couloir de recherche (W colonnes) : les détecteurs voient les deux côtés d'un mur épais
-  // même quand il est au bord du couloir.
-  const sample = makeSampler(image);
-  const px = [0, 0, 0];
-  const pxScale = 1 / (image.scale ?? 1);
-  const WF = W + 2 * MARGIN;
-  let RGB = new Float32Array(S * WF * 3);
-  for (let s = 0; s < S; s++) {
-    for (let o = 0; o < WF; o++) {
-      const off = (o - R - MARGIN) * pxScale;
-      sample(axis[s][0] + normals[s][0] * off, axis[s][1] + normals[s][1] * off, px);
-      const i = s * WF + o;
-      RGB[i * 3] = px[0];
-      RGB[i * 3 + 1] = px[1];
-      RGB[i * 3 + 2] = px[2];
-    }
+  // Zone de travail, en pixels d'image réduits d'un facteur f
+  const imgPts = stroke.map((p) => [(p[0] - ox) * sc, (p[1] - oy) * sc]);
+  const Rimg = opt.radius * sc;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const [x, y] of imgPts) {
+    minX = Math.min(minX, x);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, x);
+    maxY = Math.max(maxY, y);
   }
-  RGB = blurAlong(RGB, S, WF, 3, 1);
+  const area = (maxX - minX + 2 * (Rimg + MARGIN)) * (maxY - minY + 2 * (Rimg + MARGIN));
+  const f = Math.max(1, Math.ceil(Math.sqrt(area / opt.maxPixels)));
+  const R = Rimg / f;
+  const x0 = Math.max(0, Math.floor(minX / f - R - MARGIN));
+  const y0 = Math.max(0, Math.floor(minY / f - R - MARGIN));
+  const x1 = Math.min(Math.ceil(image.width / f) - 1, Math.ceil(maxX / f + R + MARGIN));
+  const y1 = Math.min(Math.ceil(image.height / f) - 1, Math.ceil(maxY / f + R + MARGIN));
+  const W = x1 - x0 + 1;
+  const H = y1 - y0 + 1;
+  if (W < 8 || H < 8) return fallback();
+  const local = imgPts.map(([x, y]) => [x / f - x0, y / f - y0]);
+  const toWorld = (i) => {
+    const x = i % W;
+    const y = (i - x) / W;
+    return [((x0 + x + 0.5) * f) / sc + ox, ((y0 + y + 0.5) * f) / sc + oy];
+  };
 
-  // Détecteurs sur la bande entière, puis réduits au couloir et notés sur lui
-  const ridge = crop(ridgeDetector(RGB, S, WF), S, WF, MARGIN, W);
-  const step = crop(stepDetector(RGB, S, WF), S, WF, MARGIN, W);
-  const ridgeTop = percentile(ridge, 0.98);
-  const stepTop = percentile(step, 0.98);
-  normalize(ridge);
-  normalize(step);
-  // Note = netteté du pic × contraste absolu (un détecteur qui ne voit que du bruit pèse peu).
-  // Un trait dessiné fait aussi réagir le détecteur de bord, sur ses deux flancs, avec une force
-  // comparable : le rapport des contrastes tranche (≈ 0,75 pour un trait, ≈ 0,2 pour une frontière
-  // de matière, où un seul côté diffère du centre).
+  // Bande de recherche autour du trait
+  const along = resample(local, Math.max(1, R / 3));
+  const band = new Float32Array(W * H).fill(Infinity);
+  stampDistance(along, W, H, R, band, [W, H, 0, 0]);
+  const inBand = new Uint8Array(W * H);
+  for (let i = 0; i < band.length; i++) inBand[i] = band[i] <= R ? 1 : 0;
+
+  // Carte de force de mur, sur la bande ; puis notes des détecteurs et mélange adaptatif
+  const rgb = readRegion(image, x0, y0, W, H, f);
+  const { ridge, step, width } = wallMaps(rgb, W, H, inBand);
+
+  // Référence haute de chaque détecteur : quasi-maximum de la bande (un écrêtage plus bas
+  // aplatirait le sommet d'un trait, et le chemin ne viserait plus son milieu).
+  const ridgeTop = percentile(ridge, 0.999, inBand);
+  const stepTop = percentile(step, 0.999, inBand);
+  if (!ridgeTop && !stepTop) return fallback();
   const contrast = (top) => Math.min(1, top / 24);
-  const lineLikeness = smoothstep(0.3, 0.6, stepTop ? ridgeTop / stepTop : 0);
-  const sr = sharpness(ridge, S, W) * contrast(ridgeTop) * lineLikeness;
-  const se = sharpness(step, S, W) * contrast(stepTop) * (1 - lineLikeness);
+  // Un trait fait aussi réagir le détecteur de bord sur ses deux flancs, avec une force
+  // comparable ; sur une frontière de matière, la bande répond bien moins que le bord.
+  const lineLikeness = smoothstep(0.3, 0.6, stepTop ? ridgeTop / stepTop : 1);
+  const sharp = (values, top) => (top ? 1 - percentile(values, 0.5, inBand) / top : 0);
+  const sr = sharp(ridge, ridgeTop) * contrast(ridgeTop) * lineLikeness;
+  const se = sharp(step, stepTop) * contrast(stepTop) * (1 - lineLikeness);
   const total = sr * sr + se * se;
-  const weights = total ? { ridge: (sr * sr) / total, step: (se * se) / total } : { ridge: 0, step: 0 };
-
-  const strength = new Float32Array(S * W);
-  const cost = new Float32Array(S * W);
-  for (let s = 0; s < S; s++) {
-    for (let o = 0; o < W; o++) {
-      const i = s * W + o;
-      strength[i] = weights.ridge * ridge[i] + weights.step * step[i];
-      cost[i] = 1 - strength[i] + opt.pull * ((o - R) / R) ** 2;
-    }
+  if (!total) return fallback();
+  const weights = { ridge: (sr * sr) / total, step: (se * se) / total };
+  const strength = new Float32Array(W * H);
+  for (let i = 0; i < strength.length; i++) {
+    const r = ridgeTop ? Math.min(1, ridge[i] / ridgeTop) : 0;
+    const s = stepTop ? Math.min(1, step[i] / stepTop) : 0;
+    strength[i] = weights.ridge * r + weights.step * s;
   }
 
-  const offsets = bestPath(cost, S, W, Math.max(1, Math.round(opt.maxStep)), opt.smoothness);
-  let sum = 0;
-  for (let s = 0; s < S; s++) sum += strength[s * W + offsets[s]];
-  const confidence = Math.min(1, (sum / S) * Math.max(contrast(ridgeTop), contrast(stepTop)));
-  if (!total || confidence < opt.minConfidence) return fallback(confidence, weights);
+  if (opt.debug) opt.debug({ strength, ridge, step, W, H, x0, y0, f, ridgeTop, stepTop });
 
-  const path = axis.map((p, s) => {
-    const off = (offsets[s] - R) * pxScale;
-    return [p[0] + normals[s][0] * off, p[1] + normals[s][1] * off];
-  });
-  const points = round(sharpenCorners(simplify(smoothPolyline(path, 1), opt.simplify), R * 0.9));
-  if (closed && points.length > 2) points[points.length - 1] = [...points[0]];
-  return { ok: true, points, confidence, weights, closed, path };
+  // Ancrages : le meilleur point de mur près du début et de la fin (tous les ~4R pour une boucle)
+  const anchorNear = ([px, py]) => {
+    let best = -1;
+    let bestScore = Infinity;
+    const xa = Math.max(0, Math.floor(px - R));
+    const xb = Math.min(W - 1, Math.ceil(px + R));
+    const ya = Math.max(0, Math.floor(py - R));
+    const yb = Math.min(H - 1, Math.ceil(py + R));
+    for (let y = ya; y <= yb; y++) {
+      for (let x = xa; x <= xb; x++) {
+        const d = Math.hypot(x - px, y - py);
+        if (d > R) continue;
+        const i = y * W + x;
+        const score = (1 - strength[i]) ** 2 + opt.pull * (d / R) ** 2;
+        if (score < bestScore) {
+          bestScore = score;
+          best = i;
+        }
+      }
+    }
+    return best;
+  };
+
+  const waypoints = [0];
+  for (let k = WAYPOINT_SAMPLES; k < along.length - WAYPOINT_SAMPLES / 2; k += WAYPOINT_SAMPLES) waypoints.push(k);
+  if (along.length > 1) waypoints.push(along.length - 1);
+
+  const anchors = [];
+  for (let w = 0; w < waypoints.length; w++) {
+    const k = waypoints[w];
+    const isEnd = w === 0 || w === waypoints.length - 1;
+    const a = anchorNear(along[k]);
+    if (a < 0) continue;
+    // Trait ouvert : seuls le début et la fin sont ancrés, le chemin choisit la route la plus
+    // forte de bout en bout (un ancrage intermédiaire peut tomber sur un joint de sol et forcer
+    // un détour). Une boucle fermée garde ses ancrages intermédiaires pour en faire le tour.
+    if (!isEnd && !closed) continue;
+    anchors.push({ sample: k, index: a });
+  }
+  if (closed && anchors.length > 2) anchors[anchors.length - 1].index = anchors[0].index;
+  if (anchors.length < 2) return fallback();
+
+  // Chemin d'un ancrage au suivant, dans la bande du morceau de trait correspondant
+  const cost = new Float32Array(W * H);
+  const pieceDist = new Float32Array(W * H);
+  const acc = new Float64Array(W * H);
+  const prev = new Int32Array(W * H);
+  const pixels = [];
+  for (let a = 0; a < anchors.length - 1; a++) {
+    const A = anchors[a];
+    const B = anchors[a + 1];
+    if (A.index === B.index) continue;
+    const piece = along.slice(Math.max(0, A.sample - 3), Math.min(along.length, B.sample + 4));
+    const box = [W, H, 0, 0];
+    pieceDist.fill(Infinity);
+    stampDistance(piece, W, H, R, pieceDist, box);
+    for (let y = box[1]; y <= box[3]; y++) {
+      for (let x = box[0]; x <= box[2]; x++) {
+        const i = y * W + x;
+        const d = pieceDist[i];
+        cost[i] = d > R ? Infinity : 0.04 + (1 - strength[i]) ** 2 + opt.pull * (d / R) ** 2;
+      }
+    }
+    for (const i of [A.index, B.index]) if (cost[i] === Infinity) cost[i] = 1.5;
+    const path = cheapestPath(cost, W, A.index, B.index, box, acc, prev);
+    if (!path) return fallback();
+    for (let k = pixels.length ? 1 : 0; k < path.length; k++) pixels.push(path[k]);
+  }
+  if (pixels.length < 2) return fallback();
+
+  // Retire les bouts qui ne longent aucun mur
+  let s = 0;
+  let e = pixels.length - 1;
+  if (!closed) {
+    while (s < e && strength[pixels[s]] < TRIM) s++;
+    while (e > s && strength[pixels[e]] < TRIM) e--;
+  }
+  const kept = pixels.slice(s, e + 1);
+  let sum = 0;
+  for (const i of kept) sum += strength[i];
+  const confidence = Math.min(1, (sum / Math.max(1, kept.length)) * Math.max(contrast(ridgeTop), contrast(stepTop)));
+  if (kept.length < 2 || confidence < opt.minConfidence) return fallback(confidence, weights);
+
+  // Un mur épais a un milieu flou où le chemin ondule : la tolérance de simplification suit
+  // l'épaisseur mesurée du mur (médiane le long du chemin), en mode bande.
+  const widths = kept.map((i) => width[i]).sort((a, b) => a - b);
+  const thickness = (widths[widths.length >> 1] * f) / sc;
+  const tolerance = Math.max(opt.simplify, thickness * 0.35 * weights.ridge);
+  const path = kept.map(toWorld);
+  const shortLength = Math.max(10, tolerance * 4);
+  // seconde passe sur les sommets : retire les faux angles presque alignés laissés par la première
+  let points = round(simplify(sharpenCorners(simplify(smoothPolyline(path, 2), tolerance), shortLength), tolerance));
+  points = points.filter((p, i) => i === 0 || p[0] !== points[i - 1][0] || p[1] !== points[i - 1][1]);
+  if (!closed) points = dropEndHooks(points, Math.max(shortLength, opt.radius * 0.5));
+  if (points.length < 2) return fallback(confidence, weights);
+  return { ok: true, points: closeLoop(points), confidence, weights, closed, path };
 }
