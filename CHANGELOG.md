@@ -2,6 +2,7 @@
 
 ## 0.1.4
 
+- Pinceau : les points du trait se soudent aux points et murs existants, et un trait qui repasse sur des murs ne les double plus (fini les murs superposés).
 - Pinceau : panneau dans la vue pour régler la précision sans ouvrir les réglages ; l'aperçu en attente se recalcule aussitôt.
 
 ## 0.1.0

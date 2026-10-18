@@ -217,3 +217,50 @@ export function connectedWalls(startId, walls) {
   }
   return found;
 }
+
+/** Distance d'un point au segment [a, b]. */
+function distToSegment(p, a, b) {
+  return Math.sqrt(project(p, a, b).d2);
+}
+
+/**
+ * Soude une chaîne de points (trait du pinceau) aux murs existants et à elle-même, avant création :
+ *   - chaque point proche d'un point existant, d'un mur existant ou d'un point plus ancien de la
+ *     chaîne s'y colle (deux points au même endroit n'en font plus qu'un) ;
+ *   - un segment qui repasse sur un mur existant, ou sur un segment déjà gardé de la chaîne,
+ *     n'est pas recréé (pas de murs superposés).
+ * @param {number[][]} points  sommets de la chaîne, dans l'ordre
+ * @param {{id: string, c: number[]}[]} walls  murs existants de la scène
+ * @param {number} tolerance   distance de soudure (unités monde)
+ * @returns {number[][]} coordonnées [x0, y0, x1, y1] des murs à créer
+ */
+export function weldChain(points, walls, tolerance) {
+  const welded = [];
+  for (const p of points) {
+    // les points déjà soudés de la chaîne comptent comme des extrémités existantes
+    const anchors = walls.concat(welded.slice(0, -1).map((q, i) => ({ id: `chain${i}`, c: [q[0], q[1], q[0], q[1]] })));
+    const q = snapPoint([Math.round(p[0]), Math.round(p[1])], anchors, tolerance);
+    if (!welded.length || !samePoint(q, welded[welded.length - 1])) welded.push(q);
+  }
+
+  const kept = [];
+  const covered = (c) => {
+    const [a, b] = endpoints(c);
+    const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    const n = Math.max(2, Math.ceil(len / Math.max(1, tolerance / 2)));
+    for (let k = 0; k <= n; k++) {
+      const s = [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n];
+      const near = (w) => {
+        const [wa, wb] = endpoints(w);
+        return distToSegment(s, wa, wb) <= tolerance;
+      };
+      if (!walls.some((w) => near(w.c)) && !kept.some(near)) return false;
+    }
+    return true;
+  };
+  for (let i = 0; i < welded.length - 1; i++) {
+    const c = toCoords(welded[i], welded[i + 1]);
+    if (!isDegenerate(c) && !covered(c)) kept.push(c);
+  }
+  return kept;
+}

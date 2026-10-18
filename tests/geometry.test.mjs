@@ -113,3 +113,24 @@ test("pinceau : zone d'image lue autour du trait, avec origine et échelle", asy
   const edge = imageRegion([[100, 50], [120, 60]], 20, place);
   assert.deepEqual([edge.sx, edge.sy], [0, 0]);
 });
+
+test("pinceau : un trait qui repasse sur des murs existants s'y soude sans les doubler", async () => {
+  const { weldChain } = await import("../scripts/geometry.js");
+  const walls = [wall("a", [0, 0, 100, 0])];
+  // trait qui longe le mur existant (à 2 px) puis continue vers le bas
+  const out = weldChain([[3, 2], [98, 1], [102, 3], [100, 80]], walls, 6);
+  assert.deepEqual(out, [[100, 0, 100, 80]]);
+});
+
+test("pinceau : deux points d'une même chaîne au même endroit n'en font qu'un", async () => {
+  const { weldChain } = await import("../scripts/geometry.js");
+  // boucle presque fermée : le dernier point tombe à 3 px du premier
+  const out = weldChain([[0, 0], [100, 0], [100, 100], [2, 3]], [], 6);
+  assert.deepEqual(out, [[0, 0, 100, 0], [100, 0, 100, 100], [100, 100, 0, 0]]);
+});
+
+test("pinceau : un segment qui revient sur un segment du même trait n'est pas doublé", async () => {
+  const { weldChain } = await import("../scripts/geometry.js");
+  const out = weldChain([[0, 0], [100, 0], [50, 1]], [], 6);
+  assert.deepEqual(out, [[0, 0, 100, 0]]);
+});

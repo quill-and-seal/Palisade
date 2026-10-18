@@ -11,10 +11,12 @@
 
 import { MODULE_ID, setting, t } from "./constants.js";
 import { snapStroke } from "./brush.js";
+import { weldChain } from "./geometry.js";
 
 export const BRUSH_TOOL = "palisade-brush";
 const CONTEXT_PX = 40; // pixels d'image lus en plus du rayon : contexte des détecteurs (MARGIN de brush.js)
 const CLICK_PX = 4;
+const WELD_PX = 8; // distance de soudure à l'écran
 
 /**
  * Zone de l'image à lire pour un trait.
@@ -158,12 +160,10 @@ async function accept() {
   const pts = state.result?.points;
   clear();
   if (!pts || pts.length < 2) return;
-  const data = [];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const [a, b] = [pts[i], pts[i + 1]];
-    if (a[0] !== b[0] || a[1] !== b[1]) data.push({ c: [a[0], a[1], b[0], b[1]] });
-  }
-  if (data.length) await canvas.scene.createEmbeddedDocuments("Wall", data);
+  // soudure aux murs existants et au trait lui-même : pas de points doublés ni de murs superposés
+  const walls = canvas.scene.walls.map((w) => ({ id: w.id, c: [...w.c] }));
+  const segments = weldChain(pts, walls, WELD_PX / canvas.stage.scale.x);
+  if (segments.length) await canvas.scene.createEmbeddedDocuments("Wall", segments.map((c) => ({ c })));
 }
 
 /* -------------------------------------------- */
