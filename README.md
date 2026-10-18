@@ -43,7 +43,7 @@ L'outil **pinceau** (icône pinceau, dans les outils des murs) pose les murs en 
 
 À la création, les points du trait se soudent aux points et aux murs déjà posés (8 px à l'écran), et les passages qui repassent sur un mur existant ne sont pas recréés : pas de murs superposés.
 
-Pendant que l'outil est actif, un **cadran** apparaît à gauche de la vue :
+Au moment de valider, tant que l'aperçu attend, un **cadran** apparaît à gauche de la vue :
 
 - le **bouton central** règle la précision (molette, glisser vers le haut ou le bas, ou flèches du clavier) ; la graduation à gauche suit la valeur, et l'aperçu en attente se recalcule aussitôt ;
 - les **segments de droite** choisissent le type de mur créé (clic sur le segment ou sur son nom) :

@@ -153,6 +153,7 @@ function draw() {
 function clear() {
   state.drawing = state.stroke = state.result = null;
   state.graphics?.clear();
+  syncPanel();
 }
 
 async function snap({ quiet = false } = {}) {
@@ -166,6 +167,7 @@ async function snap({ quiet = false } = {}) {
     state.result = snapStroke(state.stroke, image, { radius, simplify });
     if (!state.result.ok && !quiet) ui.notifications.warn(t("PALISADE.Brush.NoWall"));
     draw();
+    syncPanel();
   } catch (err) {
     console.error("Palisade |", err);
     ui.notifications.error(t("PALISADE.Brush.ReadError", { message: err.message }));
@@ -200,7 +202,7 @@ const TYPE_ICONS = {
   terrain: "fa-solid fa-mountain"
 };
 
-/** Cadran affiché avec l'outil : précision et type de mur se règlent sans quitter la carte. */
+/** Cadran affiché au moment de valider (aperçu en attente) : précision et type de mur s'y règlent. */
 function syncPanel() {
   if (!dial) {
     dial = createDial({
@@ -228,7 +230,7 @@ function syncPanel() {
     document.body.append(dial.element);
   }
   // en style direct : l'attribut hidden ne l'emporte pas sur un display posé en ligne
-  const visible = isActive();
+  const visible = isActive() && !!state.result;
   dial.element.style.display = visible ? "" : "none";
   if (visible) dial.sync();
 }
@@ -256,6 +258,7 @@ function onPointerMove(event) {
     // un nouveau trait remplace l'aperçu non validé
     state.moved = true;
     state.result = null;
+    syncPanel();
   }
   const p = toWorld(event);
   const last = state.drawing[state.drawing.length - 1];

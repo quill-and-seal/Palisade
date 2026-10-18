@@ -2,7 +2,7 @@
 
 ## 0.1.7
 
-- Pinceau : nouveau cadran à la place du panneau. Bouton moleté au centre pour la précision (molette, glisser, flèches), graduation de 1 à 10 px, segments de type de mur reliés à leur nom en éventail.
+- Pinceau : nouveau cadran à la place du panneau. Bouton moleté au centre pour la précision (molette, glisser, flèches), graduation de 1 à 10 px, segments de type de mur reliés à leur nom en éventail. Il n'apparaît qu'au moment de valider, tant que l'aperçu attend.
 
 ## 0.1.6
 
