@@ -742,8 +742,9 @@ export function snapStroke(stroke, image, options = {}) {
   // l'épaisseur mesurée du mur (médiane le long du chemin), en mode bande.
   const widths = kept.map((i) => width[i]).sort((a, b) => a - b);
   const thickness = (widths[widths.length >> 1] * f) / sc;
-  // Bornée : une ombre portée floue autour d'un dessin gonfle l'épaisseur mesurée.
-  const tolerance = Math.max(opt.simplify, Math.min(6, thickness * 0.35 * (weights.ridge + weights.dark)));
+  // Bornée à deux fois la précision demandée : une ombre portée floue gonfle l'épaisseur mesurée,
+  // et au-delà les détails du dessin disparaissent.
+  const tolerance = Math.max(opt.simplify, Math.min(opt.simplify * 2, thickness * 0.35 * (weights.ridge + weights.dark)));
   const path = kept.map(toWorld);
   const shortLength = Math.max(10, tolerance * 4);
   const corners = sharpenCorners(simplify(smoothPolyline(path, 2), tolerance), shortLength, path, Math.max(6, tolerance * 2));

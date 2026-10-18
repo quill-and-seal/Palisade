@@ -69,6 +69,16 @@ function registerSettings() {
     default: 48
   });
 
+  game.settings.register(MODULE_ID, "brushDetail", {
+    name: "PALISADE.Settings.BrushDetail.Name",
+    hint: "PALISADE.Settings.BrushDetail.Hint",
+    scope: "client",
+    config: true,
+    type: Number,
+    range: { min: 1, max: 10, step: 0.5 },
+    default: 2
+  });
+
   game.settings.register(MODULE_ID, "skipDoors", {
     name: "PALISADE.Settings.SkipDoors.Name",
     hint: "PALISADE.Settings.SkipDoors.Hint",

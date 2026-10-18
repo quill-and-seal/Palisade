@@ -55,6 +55,7 @@ Limites : le pinceau lit l'image de fond de la scène, pas les tuiles. Si les jo
 | Coupure en T | Activé | Un mur touché en son milieu est coupé en deux |
 | Ne jamais couper les portes | Activé | Une porte touchée en son milieu reste entière |
 | Pinceau : distance de recherche | 48 px | Jusqu'où le pinceau cherche un mur autour du trait, à l'écran. Propre à ce navigateur |
+| Pinceau : précision | 2 px | Écart maximal entre les murs créés et le contour suivi, à l'écran. Plus bas : plus de détails. Propre à ce navigateur |
 
 ## API
 

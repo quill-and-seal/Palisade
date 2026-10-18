@@ -28,6 +28,10 @@
       "BrushRadius": {
         "Name": "Brush: search distance (screen px)",
         "Hint": "How far the brush looks for a wall around the stroke, measured on screen: zooming in makes the search finer. Per browser."
+      },
+      "BrushDetail": {
+        "Name": "Brush: precision (screen px)",
+        "Hint": "Largest gap between the created walls and the traced outline, measured on screen. Lower: more detail (and more walls). Per browser."
       }
     },
     "Keybindings": {

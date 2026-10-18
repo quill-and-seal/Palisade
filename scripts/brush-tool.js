@@ -135,12 +135,14 @@ function clear() {
 }
 
 async function snap() {
+  // distances réglées en pixels à l'écran : le pinceau garde la même finesse à tout zoom
   const radius = setting("brushRadius") / canvas.stage.scale.x;
+  const simplify = setting("brushDetail") / canvas.stage.scale.x;
   state.busy = true;
   try {
     const image = await readBackground(state.stroke, radius);
     if (!image) return clear();
-    state.result = snapStroke(state.stroke, image, { radius });
+    state.result = snapStroke(state.stroke, image, { radius, simplify });
     if (!state.result.ok) ui.notifications.warn(t("PALISADE.Brush.NoWall"));
     draw();
   } catch (err) {

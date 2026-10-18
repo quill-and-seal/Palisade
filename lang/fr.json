@@ -28,6 +28,10 @@
       "BrushRadius": {
         "Name": "Pinceau : distance de recherche (px à l'écran)",
         "Hint": "Jusqu'où le pinceau va chercher un mur autour du trait, mesuré à l'écran : zoomer rend la recherche plus fine. Propre à ce navigateur."
+      },
+      "BrushDetail": {
+        "Name": "Pinceau : précision (px à l'écran)",
+        "Hint": "Écart maximal entre les murs créés et le contour suivi, mesuré à l'écran. Plus bas : plus de détails (et plus de murs). Propre à ce navigateur."
       }
     },
     "Keybindings": {

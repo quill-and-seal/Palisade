@@ -229,9 +229,9 @@
         <small>Jusqu'où le pinceau va chercher un mur autour de ton trait, mesuré à l'écran : zoomer rend la recherche plus fine.</small>
       </div>
       <div class="slider">
-        <label for="simplify">Simplification</label><output id="out-simplify"></output>
-        <input id="simplify" type="range" min="1" max="8" step="0.5" value="2.5">
-        <small>Plus haut : moins de segments, angles plus francs.</small>
+        <label for="simplify">Précision</label><output id="out-simplify"></output>
+        <input id="simplify" type="range" min="1" max="10" step="0.5" value="2">
+        <small>Écart maximal entre les murs et le contour suivi, à l'écran. Plus bas : plus de détails.</small>
       </div>
       <div class="slider">
         <label for="pull">Fidélité au trait</label><output id="out-pull"></output>
@@ -1230,8 +1230,9 @@ function snapStroke(stroke, image, options = {}) {
   // l'épaisseur mesurée du mur (médiane le long du chemin), en mode bande.
   const widths = kept.map((i) => width[i]).sort((a, b) => a - b);
   const thickness = (widths[widths.length >> 1] * f) / sc;
-  // Bornée : une ombre portée floue autour d'un dessin gonfle l'épaisseur mesurée.
-  const tolerance = Math.max(opt.simplify, Math.min(6, thickness * 0.35 * (weights.ridge + weights.dark)));
+  // Bornée à deux fois la précision demandée : une ombre portée floue gonfle l'épaisseur mesurée,
+  // et au-delà les détails du dessin disparaissent.
+  const tolerance = Math.max(opt.simplify, Math.min(opt.simplify * 2, thickness * 0.35 * (weights.ridge + weights.dark)));
   const path = kept.map(toWorld);
   const shortLength = Math.max(10, tolerance * 4);
   const corners = sharpenCorners(simplify(smoothPolyline(path, 2), tolerance), shortLength, path, Math.max(6, tolerance * 2));
@@ -1267,7 +1268,7 @@ function snapStroke(stroke, image, options = {}) {
 
   const options = () => ({
     radius: +$("radius").value / state.view.scale,
-    simplify: +$("simplify").value,
+    simplify: +$("simplify").value / state.view.scale,
     pull: +$("pull").value
   });
 
