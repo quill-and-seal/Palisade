@@ -1,0 +1,184 @@
+/* Palisade — cadran du pinceau.
+   Anneau sombre et mat ; moitié droite : types de mur, moitié gauche : graduation de précision ;
+   au centre, un bouton moleté qui règle la précision. Ambre = couleur de l'aperçu du pinceau. */
+
+#palisade-dial {
+  --pal-bg: #1b1d22;
+  --pal-ring: #26292f;
+  --pal-segment: #2d3037;
+  --pal-segment-hover: #353841;
+  --pal-line: rgba(255, 255, 255, 0.09);
+  --pal-text: #e7e6e2;
+  --pal-muted: #8b8e96;
+  --pal-amber: #ffb347;
+  position: fixed;
+  left: 110px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 60;
+  width: 430px;
+  height: 260px;
+  pointer-events: none;
+  font-family: var(--font-primary, "Signika", sans-serif);
+  color: var(--pal-text);
+  user-select: none;
+}
+
+#palisade-dial .pal-face {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 260px;
+  height: 260px;
+  pointer-events: none;
+}
+
+#palisade-dial svg {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+#palisade-dial .pal-disc {
+  fill: var(--pal-bg);
+  stroke: var(--pal-line);
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.55));
+}
+
+#palisade-dial .pal-segment {
+  fill: var(--pal-segment);
+  stroke: var(--pal-line);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: fill 0.15s ease;
+}
+#palisade-dial .pal-segment:hover { fill: var(--pal-segment-hover); }
+#palisade-dial .pal-segment:focus { outline: none; }
+#palisade-dial .pal-segment:focus-visible { stroke: var(--pal-amber); stroke-width: 1.5; }
+#palisade-dial .pal-segment.active { fill: url(#pal-hatch); stroke: rgba(255, 255, 255, 0.28); }
+
+#palisade-dial .pal-scale-track { fill: none; stroke: var(--pal-ring); stroke-width: 14; stroke-linecap: round; }
+#palisade-dial .pal-scale-fill { fill: none; stroke: var(--pal-amber); stroke-width: 3; stroke-linecap: round; opacity: 0.9; }
+#palisade-dial .pal-tick { stroke: var(--pal-muted); stroke-width: 1; opacity: 0.6; }
+#palisade-dial .pal-tick.major { stroke-width: 1.5; opacity: 0.9; }
+#palisade-dial .pal-scale-label { fill: var(--pal-muted); font-size: 10px; }
+#palisade-dial .pal-connector { fill: none; stroke: rgba(255, 255, 255, 0.45); stroke-width: 1; }
+
+#palisade-dial .pal-icon {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  color: var(--pal-muted);
+  pointer-events: none;
+  transition: color 0.15s ease;
+}
+#palisade-dial .pal-icon.active { color: var(--pal-text); }
+
+/* Bouton moleté */
+#palisade-dial .pal-knob {
+  position: absolute;
+  left: 130px;
+  top: 130px;
+  width: 104px;
+  height: 104px;
+  margin: -52px 0 0 -52px;
+  border-radius: 50%;
+  pointer-events: auto;
+  cursor: ns-resize;
+  touch-action: none;
+  background: radial-gradient(circle at 38% 30%, #ffffff 0%, #e9e9ea 45%, #b9babd 100%);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 8px 18px rgba(0, 0, 0, 0.55),
+    0 0 26px rgba(255, 179, 71, 0.22),
+    inset 0 2px 3px rgba(255, 255, 255, 0.9);
+  outline: none;
+}
+#palisade-dial .pal-knob:focus-visible { box-shadow: 0 0 0 2px var(--pal-amber), 0 8px 18px rgba(0, 0, 0, 0.55); }
+
+#palisade-dial .pal-knurl {
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, #c9cacd 0deg 2deg, #f4f4f5 2deg 4deg);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+#palisade-dial .pal-knob-face {
+  position: absolute;
+  inset: 15px;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  background: radial-gradient(circle at 40% 30%, #ffffff, #ececed 70%, #dcdcde);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.25);
+  color: #23252b;
+}
+#palisade-dial .pal-knob-value {
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+#palisade-dial .pal-knob-caption {
+  margin-top: 3px;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b6e75;
+}
+#palisade-dial .pal-pointer {
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 3px;
+  height: 9px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background: var(--pal-amber);
+}
+
+/* Liste des types, en éventail */
+#palisade-dial .pal-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 150px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #2a2d34;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  color: var(--pal-muted);
+  white-space: nowrap;
+  pointer-events: auto;
+  cursor: pointer;
+  transform-origin: left center;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+#palisade-dial .pal-label i { width: 16px; text-align: center; }
+#palisade-dial .pal-label:hover { color: var(--pal-text); }
+#palisade-dial .pal-label.active {
+  color: var(--pal-text);
+  border-color: rgba(255, 255, 255, 0.35);
+  background: #2f323a;
+}
+#palisade-dial .pal-label small { margin-left: auto; padding-left: 10px; font-size: 10px; color: var(--pal-muted); }
+
+#palisade-dial .pal-hint {
+  position: absolute;
+  left: 18px;
+  top: -14px;
+  font-size: 11px;
+  color: var(--pal-muted);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #palisade-dial * { transition: none !important; }
+}

@@ -16,6 +16,9 @@
   "esmodules": [
     "scripts/main.js"
   ],
+  "styles": [
+    "styles/palisade.css"
+  ],
   "languages": [
     {
       "lang": "fr",

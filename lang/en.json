@@ -49,13 +49,21 @@
       "NoWall": "No clear wall here: the preview keeps your stroke as drawn. Enter to create it anyway, Escape to cancel.",
       "ReadError": "The brush could not read the background image ({message}). If it is hosted on another site, copy it into Foundry's data.",
       "Precision": "Precision",
-      "Type": "Type"
+      "Type": "Type",
+      "KnobHint": "Precision: mouse wheel, drag up or down, or arrow keys",
+      "Keys": "Enter: create walls · Escape: cancel"
     },
     "WallTypes": {
       "normal": "Normal",
-      "ethereal": "Passable (blocks sight)",
-      "invisible": "Invisible (blocks movement)",
-      "terrain": "Terrain (limited sight)"
+      "ethereal": "Passable",
+      "invisible": "Invisible",
+      "terrain": "Terrain"
+    },
+    "WallTypesHint": {
+      "normal": "blocks all",
+      "ethereal": "walk through",
+      "invisible": "see through",
+      "terrain": "limited sight"
     }
   }
 }

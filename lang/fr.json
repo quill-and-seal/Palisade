@@ -49,13 +49,21 @@
       "NoWall": "Pas de mur net à cet endroit : l'aperçu reprend ton trait tel quel. Entrée pour le créer quand même, Échap pour annuler.",
       "ReadError": "Le pinceau n'a pas pu lire l'image de fond ({message}). Si elle est hébergée sur un autre site, copie-la dans les données de Foundry.",
       "Precision": "Précision",
-      "Type": "Type"
+      "Type": "Type",
+      "KnobHint": "Précision : molette, glisser vers le haut ou le bas, ou flèches du clavier",
+      "Keys": "Entrée : créer les murs · Échap : annuler"
     },
     "WallTypes": {
       "normal": "Normal",
-      "ethereal": "Traversable (cache la vue)",
-      "invisible": "Invisible (bloque le passage)",
-      "terrain": "Terrain (vue limitée)"
+      "ethereal": "Traversable",
+      "invisible": "Invisible",
+      "terrain": "Terrain"
+    },
+    "WallTypesHint": {
+      "normal": "bloque tout",
+      "ethereal": "on passe",
+      "invisible": "on voit",
+      "terrain": "vue limitée"
     }
   }
 }

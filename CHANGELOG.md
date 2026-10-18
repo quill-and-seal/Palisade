@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7
+
+- Pinceau : nouveau cadran à la place du panneau. Bouton moleté au centre pour la précision (molette, glisser, flèches), graduation de 1 à 10 px, segments de type de mur reliés à leur nom en éventail.
+
 ## 0.1.6
 
 - Pinceau : choix du type de mur créé dans le panneau (normal, traversable, invisible, terrain). Traversable : les personnages passent, la vue et la lumière restent bloquées.

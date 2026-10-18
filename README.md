@@ -43,7 +43,10 @@ L'outil **pinceau** (icône pinceau, dans les outils des murs) pose les murs en 
 
 À la création, les points du trait se soudent aux points et aux murs déjà posés (8 px à l'écran), et les passages qui repassent sur un mur existant ne sont pas recréés : pas de murs superposés.
 
-Pendant que l'outil est actif, un petit panneau en haut de la vue règle la **précision** (bouger le curseur recalcule aussitôt l'aperçu en attente) et le **type de mur** créé :
+Pendant que l'outil est actif, un **cadran** apparaît à gauche de la vue :
+
+- le **bouton central** règle la précision (molette, glisser vers le haut ou le bas, ou flèches du clavier) ; la graduation à gauche suit la valeur, et l'aperçu en attente se recalcule aussitôt ;
+- les **segments de droite** choisissent le type de mur créé (clic sur le segment ou sur son nom) :
 
 | Type | Personnages | Vue et lumière |
 |---|---|---|
@@ -66,7 +69,7 @@ Limites : le pinceau lit l'image de fond de la scène, pas les tuiles. Si les jo
 | Coupure en T | Activé | Un mur touché en son milieu est coupé en deux |
 | Ne jamais couper les portes | Activé | Une porte touchée en son milieu reste entière |
 | Pinceau : distance de recherche | 48 px | Jusqu'où le pinceau cherche un mur autour du trait, à l'écran. Propre à ce navigateur |
-| Pinceau : type de mur | Normal | Type des murs créés par le pinceau (aussi dans le panneau du pinceau). Propre à ce navigateur |
+| Pinceau : type de mur | Normal | Type des murs créés par le pinceau (aussi dans le cadran du pinceau). Propre à ce navigateur |
 | Pinceau : précision | 2 px | Écart maximal entre les murs créés et le contour suivi, à l'écran. Plus bas : plus de détails. Propre à ce navigateur |
 
 ## API

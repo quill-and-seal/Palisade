@@ -12,6 +12,7 @@
 import { MODULE_ID, setting, t } from "./constants.js";
 import { snapStroke } from "./brush.js";
 import { weldChain } from "./geometry.js";
+import { createDial } from "./brush-dial.js";
 
 export const BRUSH_TOOL = "palisade-brush";
 const CONTEXT_PX = 40; // pixels d'image lus en plus du rayon : contexte des détecteurs (MARGIN de brush.js)
@@ -189,48 +190,47 @@ async function accept() {
 /*  Panneau dans la vue                         */
 /* -------------------------------------------- */
 
-let panel = null;
+let dial = null;
 let resnapTimer = 0;
 
-/** Petit panneau affiché avec l'outil : la précision se règle sans quitter la carte. */
+const TYPE_ICONS = {
+  normal: "fa-solid fa-dungeon",
+  ethereal: "fa-solid fa-person-walking",
+  invisible: "fa-solid fa-eye",
+  terrain: "fa-solid fa-mountain"
+};
+
+/** Cadran affiché avec l'outil : précision et type de mur se règlent sans quitter la carte. */
 function syncPanel() {
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.id = "palisade-brush-panel";
-    panel.style.cssText =
-      "position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:100;align-items:center;" +
-      "gap:10px;padding:6px 12px;border-radius:6px;background:rgba(15,15,20,.85);color:#eee;" +
-      "border:1px solid rgba(255,255,255,.2);font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.5)";
-    panel.innerHTML =
-      `<i class="fa-solid fa-paintbrush"></i><label for="palisade-brush-detail">${t("PALISADE.Brush.Precision")}</label>` +
-      `<input id="palisade-brush-detail" type="range" min="1" max="10" step="0.5" style="width:140px">` +
-      `<output for="palisade-brush-detail" style="min-width:3.5em;text-align:right"></output>` +
-      `<label for="palisade-brush-type">${t("PALISADE.Brush.Type")}</label>` +
-      `<select id="palisade-brush-type">${WALL_TYPES.map((k) => `<option value="${k}">${t(`PALISADE.WallTypes.${k}`)}</option>`).join("")}</select>`;
-    const input = panel.querySelector("input");
-    const output = panel.querySelector("output");
-    input.addEventListener("input", () => {
-      output.value = `${input.value} px`;
-      clearTimeout(resnapTimer);
-      resnapTimer = setTimeout(async () => {
-        await game.settings.set(MODULE_ID, "brushDetail", Number(input.value));
-        // l'aperçu en attente suit le nouveau réglage
-        if (state.stroke && state.result && !state.busy) snap({ quiet: true });
-      }, 150);
+  if (!dial) {
+    dial = createDial({
+      types: WALL_TYPES.map((key) => ({
+        key,
+        label: t(`PALISADE.WallTypes.${key}`),
+        hint: t(`PALISADE.WallTypesHint.${key}`),
+        icon: TYPE_ICONS[key]
+      })),
+      getDetail: () => setting("brushDetail"),
+      onDetail: (value) => {
+        clearTimeout(resnapTimer);
+        resnapTimer = setTimeout(async () => {
+          await game.settings.set(MODULE_ID, "brushDetail", value);
+          // l'aperçu en attente suit le nouveau réglage
+          if (state.stroke && state.result && !state.busy) snap({ quiet: true });
+        }, 150);
+      },
+      getType: () => setting("brushWallType"),
+      onType: (key) => game.settings.set(MODULE_ID, "brushWallType", key),
+      caption: t("PALISADE.Brush.Precision"),
+      knobTitle: t("PALISADE.Brush.KnobHint"),
+      hint: t("PALISADE.Brush.Keys")
     });
-    const select = panel.querySelector("select");
-    select.addEventListener("change", () => game.settings.set(MODULE_ID, "brushWallType", select.value));
-    document.body.append(panel);
+    document.body.append(dial.element);
   }
   // en style direct : l'attribut hidden ne l'emporte pas sur un display posé en ligne
   const visible = isActive();
-  panel.style.display = visible ? "flex" : "none";
-  if (visible) {
-    const input = panel.querySelector("input");
-    input.value = setting("brushDetail");
-    panel.querySelector("output").value = `${input.value} px`;
-    panel.querySelector("select").value = setting("brushWallType");
-  }
+  dial.element.style.display = visible ? "" : "none";
+  if (visible) dial.sync();
 }
 
 /* -------------------------------------------- */
@@ -302,7 +302,7 @@ export function registerBrushTool() {
   Hooks.on("canvasTearDown", () => {
     clear();
     state.graphics = null;
-    if (panel) panel.style.display = "none";
+    if (dial) dial.element.style.display = "none";
   });
 }
 
