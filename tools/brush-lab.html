@@ -1,0 +1,1473 @@
+<title>Pinceau Palisade</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans+SC:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Plan : un atelier de cartographe la nuit. La carte occupe tout, un pupitre étroit à droite
+     (sous la carte sur téléphone) montre ce que le pinceau a compris. Look sombre assumé, comme
+     le calque des murs de Foundry : murs validés blanc cassé, aperçu ambre. */
+  :root {
+    color-scheme: dark;
+    --ink: #121518;
+    --panel: #1a1e22;
+    --raised: #23292e;
+    --line: #313840;
+    --fg: #e8e4da;
+    --muted: #949a96;
+    --wall: #f4f1e8;
+    --preview: #ffb347;
+    --preview-soft: rgba(255, 179, 71, 0.18);
+    --ridge: #c9a27a;
+    --step: #8fb3a8;
+    --warn: #ff8a6b;
+    --font-display: "Alegreya Sans SC", "Trebuchet MS", sans-serif;
+    --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  html, body { height: 100%; }
+  body {
+    background: var(--ink);
+    color: var(--fg);
+    font: 14px/1.45 var(--font-body);
+    overflow: hidden;
+  }
+  .app {
+    height: 100%;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 1fr 300px;
+    grid-template-areas: "top top" "map side";
+  }
+  header {
+    grid-area: top;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 18px;
+    padding-block: 10px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    border-bottom: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+  .brand h1 {
+    margin: 0;
+    font: 700 22px/1 var(--font-display);
+    letter-spacing: 0.06em;
+  }
+  .brand span { color: var(--muted); font-size: 13px; }
+  .group { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  button, .file {
+    font: 500 13px/1 var(--font-body);
+    color: var(--fg);
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 11px;
+    cursor: pointer;
+  }
+  button:hover, .file:hover { border-color: var(--muted); }
+  button:focus-visible, .file:focus-within, input:focus-visible { outline: 2px solid var(--preview); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: var(--fg); color: var(--ink); border-color: var(--fg); }
+  button.primary { background: var(--preview); color: #1d1406; border-color: var(--preview); font-weight: 600; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+
+  .map {
+    grid-area: map;
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    background:
+      radial-gradient(circle at 1px 1px, var(--line) 1px, transparent 0) 0 0 / 22px 22px,
+      var(--ink);
+  }
+  canvas#view { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+  .map.pan canvas#view { cursor: grab; }
+  .zoom {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    display: flex;
+    gap: 4px;
+  }
+  .zoom button { min-width: 36px; padding: 8px; font-family: var(--font-mono); }
+  .drop {
+    position: absolute;
+    inset: 12px;
+    border: 2px dashed var(--preview);
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    font: 700 20px var(--font-display);
+    letter-spacing: 0.05em;
+    background: rgba(18, 21, 24, 0.8);
+    pointer-events: none;
+  }
+  .drop[hidden] { display: none; }
+
+  aside {
+    grid-area: side;
+    border-left: 1px solid var(--line);
+    background: var(--panel);
+    overflow-y: auto;
+    padding-block: 16px;
+    padding-inline: 16px max(16px, env(safe-area-inset-right, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  section { display: flex; flex-direction: column; gap: 10px; }
+  h2 {
+    margin: 0;
+    font: 700 13px/1 var(--font-display);
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+  .verdict { font-size: 15px; font-weight: 600; text-wrap: balance; }
+  .verdict.warn { color: var(--warn); }
+  .verdict.idle { color: var(--muted); font-weight: 400; font-size: 14px; }
+  .meter { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; }
+  .meter label { font-size: 13px; }
+  .meter output { font: 500 12px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+  .bar { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: var(--raised); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; border-radius: 3px; transition: width 0.25s ease; }
+  .actions { display: flex; gap: 8px; }
+  .actions button { flex: 1; }
+  kbd {
+    font: 500 11px var(--font-mono);
+    padding: 1px 5px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    color: var(--muted);
+  }
+  button kbd { border-color: currentColor; color: inherit; opacity: 0.7; margin-left: 4px; }
+  .slider { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+  .slider label { font-size: 13px; }
+  .slider output { font: 500 12px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .slider input { grid-column: 1 / -1; width: 100%; accent-color: var(--preview); }
+  .slider small { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+  .stats { display: flex; justify-content: space-between; font-size: 13px; }
+  .stats b { font: 500 13px var(--font-mono); font-variant-numeric: tabular-nums; }
+  .help { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { width: 18px; height: 3px; border-radius: 2px; display: inline-block; }
+
+  @media (max-width: 760px) {
+    body { overflow: auto; }
+    .app {
+      height: auto;
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 62vh auto;
+      grid-template-areas: "top" "map" "side";
+    }
+    aside { border-left: 0; border-top: 1px solid var(--line); overflow: visible; padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+    .brand span { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .bar i { transition: none; } }
+</style>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <h1>Pinceau</h1>
+      <span>Palisade · banc d'essai</span>
+    </div>
+    <div class="group" role="group" aria-label="Carte">
+      <button id="demo-drawn" aria-pressed="true">Donjon dessiné</button>
+      <button id="demo-real" aria-pressed="false">Carte réaliste</button>
+      <label class="file">Ma carte…<input id="file" type="file" accept="image/*"></label>
+    </div>
+    <div class="group" role="group" aria-label="Outil">
+      <button id="tool-brush" aria-pressed="true" title="Pinceau">Pinceau</button>
+      <button id="tool-pan" aria-pressed="false" title="Déplacer la vue (ou maintenir Espace)">Déplacer</button>
+    </div>
+  </header>
+
+  <div class="map" id="map">
+    <canvas id="view" aria-label="Carte : dessine près d'un mur avec le pinceau"></canvas>
+    <div class="zoom">
+      <button id="zoom-out" aria-label="Dézoomer">−</button>
+      <button id="zoom-fit" aria-label="Ajuster la carte">⤢</button>
+      <button id="zoom-in" aria-label="Zoomer">+</button>
+    </div>
+    <div class="drop" id="drop" hidden>Lâche ta carte ici</div>
+  </div>
+
+  <aside>
+    <section aria-live="polite">
+      <h2>Aperçu</h2>
+      <div class="verdict idle" id="verdict">Dessine à main levée près d'un mur.</div>
+      <div class="meter">
+        <label>Trait sombre</label><output id="out-ridge">—</output>
+        <div class="bar"><i id="bar-ridge" style="background: var(--ridge)"></i></div>
+        <label>Bord de matière</label><output id="out-step">—</output>
+        <div class="bar"><i id="bar-step" style="background: var(--step)"></i></div>
+        <label>Netteté de la paroi</label><output id="out-conf">—</output>
+        <div class="bar"><i id="bar-conf" style="background: var(--preview)"></i></div>
+      </div>
+      <div class="actions">
+        <button class="primary" id="accept" disabled>Valider <kbd>Entrée</kbd></button>
+        <button id="reject" disabled>Annuler <kbd>Échap</kbd></button>
+      </div>
+      <div class="legend">
+        <span><i style="background: var(--preview)"></i>aperçu collé</span>
+        <span><i style="background: var(--muted)"></i>ton trait</span>
+        <span><i style="background: var(--wall)"></i>murs validés</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>Réglages</h2>
+      <div class="slider">
+        <label for="radius">Largeur de recherche</label><output id="out-radius"></output>
+        <input id="radius" type="range" min="8" max="64" step="1" value="24">
+        <small>Jusqu'où le pinceau va chercher la paroi de part et d'autre du trait.</small>
+      </div>
+      <div class="slider">
+        <label for="simplify">Simplification</label><output id="out-simplify"></output>
+        <input id="simplify" type="range" min="1" max="8" step="0.5" value="2.5">
+        <small>Plus haut : moins de segments, angles plus francs.</small>
+      </div>
+      <div class="slider">
+        <label for="pull">Fidélité au trait</label><output id="out-pull"></output>
+        <input id="pull" type="range" min="0" max="1" step="0.05" value="0.2">
+        <small>Plus haut : entre deux parois, celle qui est la plus proche de ton trait l'emporte.</small>
+      </div>
+    </section>
+
+    <section>
+      <h2>Murs validés</h2>
+      <div class="stats"><span>Segments</span><b id="wall-count">0</b></div>
+      <div class="actions">
+        <button id="undo">Défaire <kbd>Ctrl Z</kbd></button>
+        <button id="clear">Tout effacer</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Mode d'emploi</h2>
+      <ul class="help">
+        <li>Dessine le long d'un mur, sans viser précisément.</li>
+        <li>Relâche : l'aperçu ambre montre les murs collés. Retouche les réglages, l'aperçu suit.</li>
+        <li>Valide avec Entrée ou un clic sur la carte, annule avec Échap.</li>
+        <li>Molette pour zoomer, Espace ou bouton du milieu pour déplacer la vue.</li>
+        <li>Les extrémités s'accrochent aux murs déjà validés, comme dans Foundry.</li>
+      </ul>
+    </section>
+  </aside>
+</div>
+
+<script>
+/* ---- Algorithme : copie de scripts/geometry.js et scripts/brush.js ---- */
+/* scripts/geometry.js */
+/**
+ * Palisade — géométrie pure des murs (aucune dépendance à Foundry, testée avec node --test).
+ *
+ * Un mur est décrit par { id, c: [x0, y0, x1, y1], door: boolean }.
+ * Un point est un tableau [x, y]. Les coordonnées des murs Foundry sont entières.
+ */
+
+/** Distance maximale (px) pour considérer qu'un point est posé sur un mur. */
+const ON_WALL_EPS = 1;
+
+const samePoint = (p, q) => p[0] === q[0] && p[1] === q[1];
+const pointKey = (p) => `${p[0]},${p[1]}`;
+const endpoints = (c) => [[c[0], c[1]], [c[2], c[3]]];
+const toCoords = (a, b) => [a[0], a[1], b[0], b[1]];
+const isDegenerate = (c) => c[0] === c[2] && c[1] === c[3];
+
+function dist2(p, q) {
+  const dx = p[0] - q[0];
+  const dy = p[1] - q[1];
+  return dx * dx + dy * dy;
+}
+
+/**
+ * Projette p sur le segment [a, b].
+ * @returns {{t: number, point: number[], d2: number}} t non borné, point borné au segment.
+ */
+function project(p, a, b) {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const len2 = dx * dx + dy * dy;
+  if (!len2) return { t: 0, point: [a[0], a[1]], d2: dist2(p, a) };
+  const t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2;
+  const tc = Math.max(0, Math.min(1, t));
+  const point = [a[0] + tc * dx, a[1] + tc * dy];
+  return { t, point, d2: dist2(p, point) };
+}
+
+/** Vrai si p est posé à l'intérieur du segment [a, b] (extrémités exclues). */
+function isInterior(p, a, b) {
+  if (samePoint(p, a) || samePoint(p, b)) return false;
+  const pr = project(p, a, b);
+  return pr.t > 0 && pr.t < 1 && pr.d2 <= ON_WALL_EPS * ON_WALL_EPS;
+}
+
+/**
+ * Accroche un point aux murs voisins : d'abord à l'extrémité la plus proche,
+ * sinon au point le plus proche à l'intérieur d'un mur (jonction en T).
+ * @returns {number[]} le point accroché, ou p inchangé.
+ */
+function snapPoint(p, walls, tolerance, excludeId = null) {
+  if (!(tolerance > 0)) return p;
+  const tol2 = tolerance * tolerance;
+
+  let best = null;
+  let bestD = tol2;
+  for (const w of walls) {
+    if (w.id === excludeId) continue;
+    for (const e of endpoints(w.c)) {
+      const d = dist2(p, e);
+      if (d <= bestD) {
+        best = e;
+        bestD = d;
+      }
+    }
+  }
+  if (best) return [best[0], best[1]];
+
+  bestD = tol2;
+  for (const w of walls) {
+    if (w.id === excludeId) continue;
+    const [a, b] = endpoints(w.c);
+    const pr = project(p, a, b);
+    if (pr.t > 0 && pr.t < 1 && pr.d2 <= bestD) {
+      best = [Math.round(pr.point[0]), Math.round(pr.point[1])];
+      bestD = pr.d2;
+    }
+  }
+  return best ?? p;
+}
+
+/**
+ * Accroche les extrémités d'un mur. `which` dit quelles extrémités traiter.
+ * Si l'accroche rendrait le mur nul (deux extrémités au même point), le mur est rendu tel quel.
+ */
+function snapCoords(c, walls, tolerance, excludeId = null, which = [true, true]) {
+  const [a, b] = endpoints(c);
+  const na = which[0] ? snapPoint(a, walls, tolerance, excludeId) : a;
+  const nb = which[1] ? snapPoint(b, walls, tolerance, excludeId) : b;
+  const out = toCoords(na, nb);
+  return isDegenerate(out) ? [...c] : out;
+}
+
+/**
+ * Jointures : quand des murs bougent, les murs qui partageaient une extrémité
+ * avec eux suivent cette extrémité.
+ * @param {{id: string, from: number[], to: number[]}[]} moves  anciennes et nouvelles coordonnées
+ * @param {{id: string, c: number[]}[]} walls  état actuel de la scène
+ * @returns {{_id: string, c: number[]}[]} mises à jour à appliquer
+ */
+function planJointMoves(moves, walls) {
+  const moved = new Set(moves.map((m) => m.id));
+  const target = new Map();
+  for (const m of moves) {
+    const from = endpoints(m.from);
+    const to = endpoints(m.to);
+    for (let i = 0; i < 2; i++) {
+      if (!samePoint(from[i], to[i])) target.set(pointKey(from[i]), to[i]);
+    }
+  }
+  if (!target.size) return [];
+
+  const updates = [];
+  for (const w of walls) {
+    if (moved.has(w.id)) continue;
+    let changed = false;
+    const ends = endpoints(w.c).map((e) => {
+      const t = target.get(pointKey(e));
+      if (!t) return e;
+      changed = true;
+      return t;
+    });
+    if (!changed) continue;
+    const c = toCoords(ends[0], ends[1]);
+    if (!isDegenerate(c)) updates.push({ _id: w.id, c });
+  }
+  return updates;
+}
+
+/**
+ * Coupe un segment aux points donnés (ceux qui sont à l'intérieur), dans l'ordre du tracé.
+ * @returns {number[][]} les morceaux, au moins un.
+ */
+function splitCoords(c, points) {
+  const [a, b] = endpoints(c);
+  const seen = new Set();
+  const cuts = [];
+  for (const p of points) {
+    const k = pointKey(p);
+    if (seen.has(k) || !isInterior(p, a, b)) continue;
+    seen.add(k);
+    cuts.push({ p, t: project(p, a, b).t });
+  }
+  if (!cuts.length) return [[...c]];
+  cuts.sort((x, y) => x.t - y.t);
+  const chain = [a, ...cuts.map((x) => x.p), b];
+  const pieces = [];
+  for (let i = 0; i < chain.length - 1; i++) {
+    const piece = toCoords(chain[i], chain[i + 1]);
+    if (!isDegenerate(piece)) pieces.push(piece);
+  }
+  return pieces;
+}
+
+/**
+ * Jonctions en T : coupe les murs dont l'intérieur touche une extrémité d'un mur candidat,
+ * et les murs candidats dont l'intérieur touche une extrémité d'un autre mur.
+ * @param {Iterable<string>} candidateIds  murs créés ou déplacés
+ * @param {{id: string, c: number[], door?: boolean}[]} walls
+ * @param {{skipDoors?: boolean}} options  ne jamais couper les portes
+ * @returns {{updates: {_id: string, c: number[]}[], creates: {sourceId: string, c: number[]}[]}}
+ */
+function planSplits(candidateIds, walls, { skipDoors = true } = {}) {
+  const byId = new Map(walls.map((w) => [w.id, w]));
+  const cuts = new Map();
+  const addCut = (w, p) => {
+    if (skipDoors && w.door) return;
+    if (!cuts.has(w.id)) cuts.set(w.id, []);
+    cuts.get(w.id).push(p);
+  };
+
+  for (const id of new Set(candidateIds)) {
+    const w = byId.get(id);
+    if (!w) continue;
+    const [a, b] = endpoints(w.c);
+    for (const o of walls) {
+      if (o.id === w.id) continue;
+      const [oa, ob] = endpoints(o.c);
+      for (const p of [a, b]) if (isInterior(p, oa, ob)) addCut(o, p);
+      for (const q of [oa, ob]) if (isInterior(q, a, b)) addCut(w, q);
+    }
+  }
+
+  const updates = [];
+  const creates = [];
+  for (const [id, points] of cuts) {
+    const pieces = splitCoords(byId.get(id).c, points);
+    if (pieces.length < 2) continue;
+    updates.push({ _id: id, c: pieces[0] });
+    for (const c of pieces.slice(1)) creates.push({ sourceId: id, c });
+  }
+  return { updates, creates };
+}
+
+/**
+ * Tous les murs reliés à un mur de départ par des extrémités partagées (le mur compris).
+ * @returns {Set<string>}
+ */
+function connectedWalls(startId, walls) {
+  const byPoint = new Map();
+  for (const w of walls) {
+    for (const e of endpoints(w.c)) {
+      const k = pointKey(e);
+      if (!byPoint.has(k)) byPoint.set(k, []);
+      byPoint.get(k).push(w);
+    }
+  }
+  const byId = new Map(walls.map((w) => [w.id, w]));
+  const found = new Set();
+  const stack = [startId];
+  while (stack.length) {
+    const id = stack.pop();
+    if (found.has(id) || !byId.has(id)) continue;
+    found.add(id);
+    for (const e of endpoints(byId.get(id).c)) {
+      for (const n of byPoint.get(pointKey(e))) if (!found.has(n.id)) stack.push(n.id);
+    }
+  }
+  return found;
+}
+
+/* scripts/brush.js */
+/**
+ * Palisade — pinceau : colle un trait dessiné à main levée sur la paroi dessinée dans l'image.
+ *
+ * Fonctionnement :
+ *   1. Le trait est rééchantillonné et lissé : c'est l'axe d'un « couloir » de ±radius px.
+ *   2. L'image est lue perpendiculairement au trait en chaque point : on obtient un couloir redressé.
+ *   3. Deux détecteurs y cherchent la paroi :
+ *        - trait : une bande plus sombre (ou plus claire) que ses deux côtés, à plusieurs épaisseurs
+ *                  → murs dessinés, on vise le milieu du trait ;
+ *        - bord  : un changement de matière entre les deux côtés (couleur moyenne)
+ *                  → cartes réalistes, pierre contre bois.
+ *      Chaque détecteur est noté sur ce couloir précis (netteté de son pic), et le mélange suit
+ *      cette note : le pinceau s'adapte à chaque carte et même à chaque trait.
+ *   4. Un chemin continu traverse le couloir (programmation dynamique) : il suit la paroi la plus
+ *      marquée sans sauter d'un mur à l'autre, avec une légère préférence pour le trait dessiné.
+ *   5. Le chemin est simplifié en quelques segments (Ramer-Douglas-Peucker).
+ *
+ * Aucune dépendance : le même fichier sert dans Foundry, dans la page de test et dans les tests Node.
+ */
+
+const BRUSH_DEFAULTS = {
+  spacing: 4, // écart entre deux échantillons du trait (px)
+  radius: 24, // demi-largeur du couloir de recherche (px)
+  maxStep: 2, // décalage latéral maximal d'un échantillon au suivant (px)
+  smoothness: 0.08, // pénalité de virage du chemin
+  pull: 0.2, // préférence pour rester près du trait dessiné
+  simplify: 2.5, // tolérance de simplification (px)
+  minConfidence: 0.22 // en dessous, aucune paroi nette : le trait est gardé tel quel
+};
+
+const RIDGE_WIDTHS = [1, 2, 3, 5, 8, 12, 16];
+const STEP_WIDTHS = [3, 6, 10];
+const MARGIN = 32; // = h + g de la plus grande épaisseur cherchée (16 + 16)
+
+/* -------------------------------------------- */
+/*  Trait                                       */
+/* -------------------------------------------- */
+
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+const smoothstep = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+/** Points régulièrement espacés le long d'une polyligne. */
+function resample(points, spacing) {
+  if (points.length < 2) return points.map((p) => [p[0], p[1]]);
+  const out = [[points[0][0], points[0][1]]];
+  let carry = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1];
+    const b = points[i];
+    const len = dist(a, b);
+    if (!len) continue;
+    let d = spacing - carry;
+    while (d <= len) {
+      const t = d / len;
+      out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      d += spacing;
+    }
+    carry = len - (d - spacing);
+  }
+  const last = points[points.length - 1];
+  if (dist(out[out.length - 1], last) > spacing * 0.25) out.push([last[0], last[1]]);
+  return out;
+}
+
+/** Moyenne glissante, extrémités conservées. */
+function smoothPolyline(points, half = 2) {
+  const n = points.length;
+  return points.map((p, i) => {
+    if (i === 0 || i === n - 1) return [p[0], p[1]];
+    const h = Math.min(half, i, n - 1 - i);
+    let x = 0;
+    let y = 0;
+    for (let k = -h; k <= h; k++) {
+      x += points[i + k][0];
+      y += points[i + k][1];
+    }
+    return [x / (2 * h + 1), y / (2 * h + 1)];
+  });
+}
+
+/** Simplification de Ramer-Douglas-Peucker. */
+function simplify(points, tolerance) {
+  if (points.length < 3) return points.map((p) => [p[0], p[1]]);
+  const keep = new Uint8Array(points.length);
+  keep[0] = keep[points.length - 1] = 1;
+  const stack = [[0, points.length - 1]];
+  while (stack.length) {
+    const [s, e] = stack.pop();
+    const a = points[s];
+    const b = points[e];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy);
+    let best = -1;
+    let bestD = tolerance;
+    for (let i = s + 1; i < e; i++) {
+      const p = points[i];
+      const d = len ? Math.abs(dy * p[0] - dx * p[1] + b[0] * a[1] - b[1] * a[0]) / len : dist(p, a);
+      if (d > bestD) {
+        bestD = d;
+        best = i;
+      }
+    }
+    if (best > 0) {
+      keep[best] = 1;
+      stack.push([s, best], [best, e]);
+    }
+  }
+  return points.filter((_, i) => keep[i]).map((p) => [p[0], p[1]]);
+}
+
+/**
+ * Angles vifs : deux longs segments reliés par de petits segments de transition (le lissage
+ * arrondit les coins) sont prolongés jusqu'à leur intersection.
+ * @param {number} shortLength  longueur en dessous de laquelle un segment est une transition
+ */
+function sharpenCorners(points, shortLength) {
+  if (points.length < 4) return points.map((p) => [p[0], p[1]]);
+  const out = [[points[0][0], points[0][1]]];
+  let i = 1;
+  while (i < points.length) {
+    // out[last] est le début du segment A = out[last] → points[i]
+    let j = i;
+    while (j < points.length - 1 && dist(points[j], points[j + 1]) < shortLength) j++;
+    // transition : points[i] … points[j], segment B = points[j] → points[j + 1]
+    const a0 = out[out.length - 1];
+    const a1 = points[i];
+    if (j > i && j < points.length - 1 && dist(a0, a1) >= shortLength) {
+      const b0 = points[j];
+      const b1 = points[j + 1];
+      const corner = intersect(a0, a1, b0, b1);
+      if (corner && dist(corner, a1) < shortLength * 2 && dist(corner, b0) < shortLength * 2) {
+        out.push(corner);
+        i = j + 1;
+        continue;
+      }
+    }
+    out.push([a1[0], a1[1]]);
+    i++;
+  }
+  return out;
+}
+
+/** Intersection des droites (a0 a1) et (b0 b1), si elles font un angle d'au moins 20°. */
+function intersect(a0, a1, b0, b1) {
+  const dax = a1[0] - a0[0];
+  const day = a1[1] - a0[1];
+  const dbx = b1[0] - b0[0];
+  const dby = b1[1] - b0[1];
+  const cross = dax * dby - day * dbx;
+  const sin = Math.abs(cross) / (Math.hypot(dax, day) * Math.hypot(dbx, dby) || 1);
+  if (sin < Math.sin((20 * Math.PI) / 180)) return null;
+  const t = ((b0[0] - a0[0]) * dby - (b0[1] - a0[1]) * dbx) / cross;
+  return [a0[0] + dax * t, a0[1] + day * t];
+}
+
+/* -------------------------------------------- */
+/*  Lecture de l'image                          */
+/* -------------------------------------------- */
+
+/**
+ * Lecture bilinéaire. `image` : { width, height, data (RGBA), originX?, originY?, scale? }.
+ * Les points sont en coordonnées « monde » ; (originX, originY) est la position monde du pixel (0, 0)
+ * et `scale` le nombre de pixels d'image par unité monde.
+ */
+function makeSampler(image) {
+  const { width: w, height: h, data } = image;
+  const ox = image.originX ?? 0;
+  const oy = image.originY ?? 0;
+  const sc = image.scale ?? 1;
+  return (x, y, out) => {
+    let ix = (x - ox) * sc;
+    let iy = (y - oy) * sc;
+    ix = Math.min(Math.max(ix, 0), w - 1);
+    iy = Math.min(Math.max(iy, 0), h - 1);
+    const x0 = Math.floor(ix);
+    const y0 = Math.floor(iy);
+    const x1 = Math.min(x0 + 1, w - 1);
+    const y1 = Math.min(y0 + 1, h - 1);
+    const fx = ix - x0;
+    const fy = iy - y0;
+    const i00 = (y0 * w + x0) * 4;
+    const i10 = (y0 * w + x1) * 4;
+    const i01 = (y1 * w + x0) * 4;
+    const i11 = (y1 * w + x1) * 4;
+    for (let c = 0; c < 3; c++) {
+      const top = data[i00 + c] * (1 - fx) + data[i10 + c] * fx;
+      const bot = data[i01 + c] * (1 - fx) + data[i11 + c] * fx;
+      out[c] = top * (1 - fy) + bot * fy;
+    }
+  };
+}
+
+/* -------------------------------------------- */
+/*  Détecteurs                                  */
+/* -------------------------------------------- */
+
+function percentile(values, q) {
+  const step = Math.max(1, Math.floor(values.length / 4000));
+  const sample = [];
+  for (let i = 0; i < values.length; i += step) sample.push(values[i]);
+  sample.sort((a, b) => a - b);
+  return sample[Math.min(sample.length - 1, Math.floor(q * sample.length))] || 0;
+}
+
+function normalize(values) {
+  const top = percentile(values, 0.98) || 1;
+  for (let i = 0; i < values.length; i++) values[i] = Math.min(1, values[i] / top);
+}
+
+/** Netteté d'un détecteur : écart moyen entre son pic et sa médiane, ligne par ligne. */
+function sharpness(values, S, W) {
+  let total = 0;
+  const row = new Float32Array(W);
+  for (let s = 0; s < S; s++) {
+    let max = 0;
+    for (let o = 0; o < W; o++) {
+      row[o] = values[s * W + o];
+      if (row[o] > max) max = row[o];
+    }
+    row.sort();
+    total += max - row[W >> 1];
+  }
+  return total / S;
+}
+
+/**
+ * Bande dont la couleur diffère de ses deux côtés (trait dessiné, mur de pierre entre herbe et
+ * parquet…), à l'épaisseur la mieux adaptée. Une simple frontière de matière ne répond pas :
+ * l'un des côtés y ressemble au centre.
+ */
+function ridgeDetector(RGB, S, W) {
+  const out = new Float32Array(S * W);
+  const pre = [new Float64Array(W + 1), new Float64Array(W + 1), new Float64Array(W + 1)];
+  const mean = (c, a, b) => (pre[c][b + 1] - pre[c][a]) / (b - a + 1);
+  const left = [0, 0, 0];
+  const right = [0, 0, 0];
+  const mid = [0, 0, 0];
+  for (let s = 0; s < S; s++) {
+    for (let c = 0; c < 3; c++) {
+      for (let o = 0; o < W; o++) pre[c][o + 1] = pre[c][o] + RGB[(s * W + o) * 3 + c];
+    }
+    for (let o = 0; o < W; o++) {
+      let best = 0;
+      for (const h of RIDGE_WIDTHS) {
+        const g = Math.max(2, h);
+        if (o - h - g < 0 || o + h + g >= W) continue;
+        // Distance de la couleur du centre au segment [gauche, droite] : un mélange des deux
+        // côtés (centre posé sur une frontière) tombe sur le segment, une bande de matière non.
+        let lr2 = 0;
+        let dot = 0;
+        for (let c = 0; c < 3; c++) {
+          left[c] = mean(c, o - h - g, o - h - 1);
+          right[c] = mean(c, o + h + 1, o + h + g);
+          mid[c] = mean(c, o - h, o + h);
+          lr2 += (right[c] - left[c]) ** 2;
+          dot += (mid[c] - left[c]) * (right[c] - left[c]);
+        }
+        const t = lr2 ? Math.min(1, Math.max(0, dot / lr2)) : 0;
+        let d2 = 0;
+        for (let c = 0; c < 3; c++) d2 += (mid[c] - left[c] - t * (right[c] - left[c])) ** 2;
+        const v = Math.sqrt(d2 / 3);
+        if (v > best) best = v;
+      }
+      out[s * W + o] = best;
+    }
+  }
+  return out;
+}
+
+/** Changement de couleur moyenne entre les deux côtés d'un point. */
+function stepDetector(RGB, S, W) {
+  const out = new Float32Array(S * W);
+  const pre = [new Float64Array(W + 1), new Float64Array(W + 1), new Float64Array(W + 1)];
+  for (let s = 0; s < S; s++) {
+    for (let c = 0; c < 3; c++) {
+      for (let o = 0; o < W; o++) pre[c][o + 1] = pre[c][o] + RGB[(s * W + o) * 3 + c];
+    }
+    for (let o = 0; o < W; o++) {
+      let best = 0;
+      for (const w of STEP_WIDTHS) {
+        if (o - w < 0 || o + w >= W) continue;
+        let d2 = 0;
+        for (let c = 0; c < 3; c++) {
+          const left = (pre[c][o] - pre[c][o - w]) / w;
+          const right = (pre[c][o + w + 1] - pre[c][o + 1]) / w;
+          d2 += (left - right) ** 2;
+        }
+        const v = Math.sqrt(d2 / 3);
+        if (v > best) best = v;
+      }
+      out[s * W + o] = best;
+    }
+  }
+  return out;
+}
+
+/** Garde les colonnes [from, from + width) de chaque ligne. */
+function crop(values, S, W, from, width) {
+  const out = new Float32Array(S * width);
+  for (let s = 0; s < S; s++) out.set(values.subarray(s * W + from, s * W + from + width), s * width);
+  return out;
+}
+
+/** Moyenne le long du trait (lignes voisines) pour atténuer le bruit des textures. */
+function blurAlong(values, S, W, stride = 1, half = 1) {
+  const out = new Float32Array(values.length);
+  for (let s = 0; s < S; s++) {
+    const a = Math.max(0, s - half);
+    const b = Math.min(S - 1, s + half);
+    for (let o = 0; o < W * stride; o++) {
+      let sum = 0;
+      for (let k = a; k <= b; k++) sum += values[k * W * stride + o];
+      out[s * W * stride + o] = sum / (b - a + 1);
+    }
+  }
+  return out;
+}
+
+/* -------------------------------------------- */
+/*  Chemin                                      */
+/* -------------------------------------------- */
+
+function bestPath(cost, S, W, maxStep, smoothness) {
+  const acc = new Float32Array(S * W);
+  const back = new Int8Array(S * W);
+  for (let o = 0; o < W; o++) acc[o] = cost[o];
+  for (let s = 1; s < S; s++) {
+    for (let o = 0; o < W; o++) {
+      let best = Infinity;
+      let arg = 0;
+      for (let d = -maxStep; d <= maxStep; d++) {
+        const p = o + d;
+        if (p < 0 || p >= W) continue;
+        const v = acc[(s - 1) * W + p] + smoothness * d * d;
+        if (v < best) {
+          best = v;
+          arg = d;
+        }
+      }
+      acc[s * W + o] = best + cost[s * W + o];
+      back[s * W + o] = arg;
+    }
+  }
+  let o = 0;
+  for (let k = 1; k < W; k++) if (acc[(S - 1) * W + k] < acc[(S - 1) * W + o]) o = k;
+  const path = new Int16Array(S);
+  for (let s = S - 1; s >= 0; s--) {
+    path[s] = o;
+    o += back[s * W + o];
+  }
+  return path;
+}
+
+/* -------------------------------------------- */
+/*  Point d'entrée                              */
+/* -------------------------------------------- */
+
+/**
+ * Colle un trait sur la paroi dessinée dans l'image.
+ * @param {number[][]} stroke  points du trait, en coordonnées monde
+ * @param {object} image       { width, height, data, originX?, originY?, scale? } (voir makeSampler)
+ * @param {object} [options]   voir BRUSH_DEFAULTS
+ * @returns {{ok: boolean, points: number[][], confidence: number, weights: {ridge: number, step: number},
+ *            closed: boolean, path: number[][]}}
+ *   ok         : une paroi nette a été trouvée (sinon `points` est le trait simplifié, non collé)
+ *   points     : sommets des murs à créer, arrondis
+ *   confidence : 0–1, force moyenne de la paroi suivie
+ *   weights    : part de chaque détecteur (trait sombre / bord de matière)
+ *   path       : chemin collé avant simplification (pour l'aperçu)
+ */
+function snapStroke(stroke, image, options = {}) {
+  const opt = { ...BRUSH_DEFAULTS, ...options };
+  const R = Math.max(4, Math.round(opt.radius));
+  const W = 2 * R + 1;
+
+  const rawLength = stroke.slice(1).reduce((sum, p, i) => sum + dist(stroke[i], p), 0);
+  const closed = stroke.length > 2 && rawLength > 6 * R && dist(stroke[0], stroke[stroke.length - 1]) < R;
+  const round = (pts) => pts.map((p) => [Math.round(p[0]), Math.round(p[1])]);
+  const fallback = (confidence = 0, weights = { ridge: 0, step: 0 }) => {
+    const pts = round(simplify(smoothPolyline(resample(stroke, opt.spacing), 2), opt.simplify));
+    if (closed && pts.length > 2) pts[pts.length - 1] = [...pts[0]];
+    return { ok: false, points: pts, confidence, weights, closed, path: pts };
+  };
+
+  const axis = smoothPolyline(resample(stroke, opt.spacing), 3);
+  const S = axis.length;
+  if (S < 3) return fallback();
+
+  // Normales au trait
+  const normals = axis.map((_, i) => {
+    const a = axis[Math.max(0, i - 2)];
+    const b = axis[Math.min(S - 1, i + 2)];
+    const tx = b[0] - a[0];
+    const ty = b[1] - a[1];
+    const len = Math.hypot(tx, ty) || 1;
+    return [-ty / len, tx / len];
+  });
+
+  // Couloir redressé : S lignes × WF colonnes. La bande lue déborde de MARGIN px de chaque côté
+  // du couloir de recherche (W colonnes) : les détecteurs voient les deux côtés d'un mur épais
+  // même quand il est au bord du couloir.
+  const sample = makeSampler(image);
+  const px = [0, 0, 0];
+  const pxScale = 1 / (image.scale ?? 1);
+  const WF = W + 2 * MARGIN;
+  let RGB = new Float32Array(S * WF * 3);
+  for (let s = 0; s < S; s++) {
+    for (let o = 0; o < WF; o++) {
+      const off = (o - R - MARGIN) * pxScale;
+      sample(axis[s][0] + normals[s][0] * off, axis[s][1] + normals[s][1] * off, px);
+      const i = s * WF + o;
+      RGB[i * 3] = px[0];
+      RGB[i * 3 + 1] = px[1];
+      RGB[i * 3 + 2] = px[2];
+    }
+  }
+  RGB = blurAlong(RGB, S, WF, 3, 1);
+
+  // Détecteurs sur la bande entière, puis réduits au couloir et notés sur lui
+  const ridge = crop(ridgeDetector(RGB, S, WF), S, WF, MARGIN, W);
+  const step = crop(stepDetector(RGB, S, WF), S, WF, MARGIN, W);
+  const ridgeTop = percentile(ridge, 0.98);
+  const stepTop = percentile(step, 0.98);
+  normalize(ridge);
+  normalize(step);
+  // Note = netteté du pic × contraste absolu (un détecteur qui ne voit que du bruit pèse peu).
+  // Un trait dessiné fait aussi réagir le détecteur de bord, sur ses deux flancs, avec une force
+  // comparable : le rapport des contrastes tranche (≈ 0,75 pour un trait, ≈ 0,2 pour une frontière
+  // de matière, où un seul côté diffère du centre).
+  const contrast = (top) => Math.min(1, top / 24);
+  const lineLikeness = smoothstep(0.3, 0.6, stepTop ? ridgeTop / stepTop : 0);
+  const sr = sharpness(ridge, S, W) * contrast(ridgeTop) * lineLikeness;
+  const se = sharpness(step, S, W) * contrast(stepTop) * (1 - lineLikeness);
+  const total = sr * sr + se * se;
+  const weights = total ? { ridge: (sr * sr) / total, step: (se * se) / total } : { ridge: 0, step: 0 };
+
+  const strength = new Float32Array(S * W);
+  const cost = new Float32Array(S * W);
+  for (let s = 0; s < S; s++) {
+    for (let o = 0; o < W; o++) {
+      const i = s * W + o;
+      strength[i] = weights.ridge * ridge[i] + weights.step * step[i];
+      cost[i] = 1 - strength[i] + opt.pull * ((o - R) / R) ** 2;
+    }
+  }
+
+  const offsets = bestPath(cost, S, W, Math.max(1, Math.round(opt.maxStep)), opt.smoothness);
+  let sum = 0;
+  for (let s = 0; s < S; s++) sum += strength[s * W + offsets[s]];
+  const confidence = Math.min(1, (sum / S) * Math.max(contrast(ridgeTop), contrast(stepTop)));
+  if (!total || confidence < opt.minConfidence) return fallback(confidence, weights);
+
+  const path = axis.map((p, s) => {
+    const off = (offsets[s] - R) * pxScale;
+    return [p[0] + normals[s][0] * off, p[1] + normals[s][1] * off];
+  });
+  const points = round(sharpenCorners(simplify(smoothPolyline(path, 1), opt.simplify), R * 0.9));
+  if (closed && points.length > 2) points[points.length - 1] = [...points[0]];
+  return { ok: true, points, confidence, weights, closed, path };
+}
+
+
+/* ---- Banc d'essai ---- */
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const map = $("map");
+  const view = $("view");
+  const ctx = view.getContext("2d");
+  const ENDPOINT_SNAP = 12;
+
+  const state = {
+    image: null, // { canvas, data: ImageData }
+    view: { scale: 1, x: 0, y: 0 },
+    walls: [], // [{ id, c }]
+    history: [], // nombre de murs ajoutés par validation
+    stroke: null, // trait en cours
+    rawStroke: null, // dernier trait relâché
+    preview: null, // résultat de snapStroke
+    tool: "brush",
+    spaceHeld: false,
+    nextId: 1
+  };
+
+  const options = () => ({
+    radius: +$("radius").value,
+    simplify: +$("simplify").value,
+    pull: +$("pull").value
+  });
+
+  /* ---------- Cartes de démonstration ---------- */
+
+  function hash(x, y, seed) {
+    let h = (x * 374761393 + y * 668265263 + seed * 1442695041) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  function valueNoise(x, y, cell, seed) {
+    const gx = Math.floor(x / cell), gy = Math.floor(y / cell);
+    const fx = x / cell - gx, fy = y / cell - gy;
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const a = hash(gx, gy, seed), b = hash(gx + 1, gy, seed);
+    const c = hash(gx, gy + 1, seed), d = hash(gx + 1, gy + 1, seed);
+    return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+  }
+
+  function paintPixels(w, h, paint) {
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const c = canvas.getContext("2d");
+    const img = c.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const [r, g, b] = paint(x, y);
+        const i = (y * w + x) * 4;
+        img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = 255;
+      }
+    }
+    c.putImageData(img, 0, 0);
+    return canvas;
+  }
+
+  function demoDrawn() {
+    const W = 1400, H = 1000;
+    const canvas = paintPixels(W, H, (x, y) => {
+      const n = (hash(x, y, 1) - 0.5) * 16 + (valueNoise(x, y, 120, 2) - 0.5) * 26;
+      const grid = (x % 70 === 0 || y % 70 === 0) ? -14 : 0;
+      return [226 + n + grid, 211 + n + grid, 176 + n * 0.8 + grid];
+    });
+    const c = canvas.getContext("2d");
+    c.strokeStyle = "#2b231c";
+    c.lineWidth = 10;
+    c.lineCap = "square";
+    const rect = (x0, y0, x1, y1) => c.strokeRect(x0, y0, x1 - x0, y1 - y0);
+    rect(150, 150, 600, 500);
+    rect(600, 250, 1050, 650);
+    c.beginPath(); c.moveTo(300, 500); c.lineTo(300, 800); c.moveTo(400, 500); c.lineTo(400, 800); c.stroke();
+    rect(250, 800, 720, 930);
+    c.beginPath(); c.arc(1180, 330, 110, 0, Math.PI * 2); c.stroke();
+    // portes : traits plus fins en travers des murs
+    c.lineWidth = 4;
+    c.beginPath(); c.moveTo(600, 330); c.lineTo(600, 390); c.stroke();
+    // mobilier dessiné, pour tester les distractions
+    c.lineWidth = 2;
+    c.strokeStyle = "#5a4a3a";
+    c.strokeRect(220, 220, 120, 60);
+    c.beginPath(); c.arc(820, 450, 40, 0, Math.PI * 2); c.stroke();
+    return canvas;
+  }
+
+  function demoReal() {
+    const W = 1400, H = 1000;
+    const inBand = (x, y, x0, y0, x1, y1, t) => {
+      const inside = x >= x0 - t && x <= x1 + t && y >= y0 - t && y <= y1 + t;
+      const core = x > x0 + t && x < x1 - t && y > y0 + t && y < y1 - t;
+      return inside && !core;
+    };
+    return paintPixels(W, H, (x, y) => {
+      const fine = hash(x, y, 7) - 0.5;
+      // murs de pierre : blocs et joints
+      if (inBand(x, y, 200, 150, 1200, 850, 12) || (x >= 638 && x <= 662 && y >= 150 && y <= 520)) {
+        const row = Math.floor(y / 16);
+        const bx = Math.floor((x + (row % 2) * 13) / 26);
+        const mortar = y % 16 < 2 || (x + (row % 2) * 13) % 26 < 2;
+        const tone = (hash(bx, row, 3) - 0.5) * 30;
+        const v = mortar ? 58 : 98 + tone + fine * 28;
+        return [v, v - 2, v - 6];
+      }
+      const inside = x > 212 && x < 1188 && y > 162 && y < 838;
+      if (!inside) {
+        // herbe
+        const n = (valueNoise(x, y, 40, 9) - 0.5) * 40 + fine * 46;
+        return [70 + n * 0.6, 112 + n, 52 + n * 0.5];
+      }
+      if (x < 650) {
+        // parquet
+        const plank = Math.floor(y / 28);
+        const seam = y % 28 < 2 || (x + plank * 97) % 240 < 2;
+        const grain = (valueNoise(x * 0.25, y * 3, 6, plank) - 0.5) * 34 + fine * 22;
+        const tone = (hash(plank, Math.floor((x + plank * 97) / 240), 5) - 0.5) * 26;
+        return seam ? [72, 46, 28] : [150 + grain + tone, 101 + grain * 0.8 + tone, 58 + grain * 0.5];
+      }
+      // dalles
+      const seam = x % 56 < 3 || y % 56 < 3;
+      const tone = (hash(Math.floor(x / 56), Math.floor(y / 56), 8) - 0.5) * 24;
+      const v = seam ? 120 : 176 + tone + fine * 24;
+      return [v, v - 3, v - 12];
+    });
+  }
+
+  /* ---------- Chargement ---------- */
+
+  function setImage(canvas) {
+    const c = canvas.getContext("2d", { willReadFrequently: true });
+    state.image = { canvas, data: c.getImageData(0, 0, canvas.width, canvas.height) };
+    state.walls = [];
+    state.history = [];
+    clearPreview();
+    fitView();
+    updateWalls();
+  }
+
+  function loadFile(file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext("2d").drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      setDemoButtons(null);
+      setImage(canvas);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      setVerdict("Impossible de lire cette image. Essaie un PNG, un JPEG ou un WebP.", "warn");
+    };
+    img.src = url;
+  }
+
+  function setDemoButtons(which) {
+    $("demo-drawn").setAttribute("aria-pressed", String(which === "drawn"));
+    $("demo-real").setAttribute("aria-pressed", String(which === "real"));
+  }
+
+  /* ---------- Vue ---------- */
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const r = map.getBoundingClientRect();
+    view.width = Math.max(1, Math.round(r.width * dpr));
+    view.height = Math.max(1, Math.round(r.height * dpr));
+    draw();
+  }
+
+  function fitView() {
+    if (!state.image) return;
+    const r = map.getBoundingClientRect();
+    const { width: w, height: h } = state.image.canvas;
+    const s = Math.min((r.width - 32) / w, (r.height - 32) / h);
+    state.view = { scale: s, x: (r.width - w * s) / 2, y: (r.height - h * s) / 2 };
+    draw();
+  }
+
+  function zoomAt(factor, sx, sy) {
+    const v = state.view;
+    const s = Math.min(8, Math.max(0.05, v.scale * factor));
+    const k = s / v.scale;
+    v.x = sx - (sx - v.x) * k;
+    v.y = sy - (sy - v.y) * k;
+    v.scale = s;
+    draw();
+  }
+
+  const toWorld = (sx, sy) => [(sx - state.view.x) / state.view.scale, (sy - state.view.y) / state.view.scale];
+
+  /* ---------- Dessin ---------- */
+
+  function polyline(points, color, width, dash = []) {
+    if (!points || points.length < 2) return;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i][0], points[i][1]);
+    ctx.setLineDash(dash.map((d) => d / state.view.scale));
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width / state.view.scale;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  function dots(points, fill, radius, ring) {
+    for (const p of points) {
+      ctx.beginPath();
+      ctx.arc(p[0], p[1], radius / state.view.scale, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if (ring) {
+        ctx.lineWidth = 1.5 / state.view.scale;
+        ctx.strokeStyle = ring;
+        ctx.stroke();
+      }
+    }
+  }
+
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, view.width, view.height);
+    if (!state.image) return;
+    const v = state.view;
+    ctx.setTransform(dpr * v.scale, 0, 0, dpr * v.scale, dpr * v.x, dpr * v.y);
+    ctx.imageSmoothingEnabled = v.scale < 2;
+    ctx.drawImage(state.image.canvas, 0, 0);
+
+    const wall = css("--wall"), preview = css("--preview"), muted = css("--muted"), ink = css("--ink");
+    for (const w of state.walls) {
+      const pts = [[w.c[0], w.c[1]], [w.c[2], w.c[3]]];
+      polyline(pts, ink, 6);
+      polyline(pts, wall, 3);
+    }
+    dots(state.walls.flatMap((w) => [[w.c[0], w.c[1]], [w.c[2], w.c[3]]]), wall, 3.5, ink);
+
+    if (state.stroke) polyline(state.stroke, muted, 2.5);
+    if (state.preview) {
+      polyline(state.rawStroke, muted, 2, [6, 5]);
+      if (state.preview.ok) {
+        // couloir de recherche, discret
+        ctx.globalAlpha = 0.12;
+        polyline(state.rawStroke, preview, options().radius * 2 * state.view.scale);
+        ctx.globalAlpha = 1;
+      }
+      polyline(state.preview.points, ink, 7);
+      polyline(state.preview.points, state.preview.ok ? preview : css("--warn"), 3.5);
+      dots(state.preview.points, state.preview.ok ? preview : css("--warn"), 4.5, ink);
+    }
+  }
+
+  /* ---------- Pinceau ---------- */
+
+  function runSnap() {
+    if (!state.rawStroke || !state.image) return;
+    const img = state.image.data;
+    const res = snapStroke(state.rawStroke, { width: img.width, height: img.height, data: img.data }, options());
+    // Accroche des extrémités aux murs validés (ce que fait Palisade dans Foundry)
+    const walls = state.walls.map((w) => ({ id: w.id, c: w.c }));
+    const pts = res.points.map((p) => [...p]);
+    const last = pts.length - 1;
+    if (walls.length && pts.length >= 2) {
+      pts[0] = snapPoint(pts[0], walls, ENDPOINT_SNAP);
+      if (!res.closed) pts[last] = snapPoint(pts[last], walls, ENDPOINT_SNAP);
+      else pts[last] = [...pts[0]];
+    }
+    state.preview = { ...res, points: dedupe(pts) };
+    showResult();
+    draw();
+  }
+
+  function dedupe(pts) {
+    return pts.filter((p, i) => i === 0 || p[0] !== pts[i - 1][0] || p[1] !== pts[i - 1][1]);
+  }
+
+  function setVerdict(text, kind = "") {
+    const el = $("verdict");
+    el.textContent = text;
+    el.className = "verdict" + (kind ? " " + kind : "");
+  }
+
+  function setMeter(name, value) {
+    $("bar-" + name).style.width = value == null ? "0" : Math.round(value * 100) + "%";
+    $("out-" + name).textContent = value == null ? "—" : Math.round(value * 100) + " %";
+  }
+
+  function showResult() {
+    const p = state.preview;
+    $("accept").disabled = $("reject").disabled = !p;
+    if (!p) {
+      setVerdict("Dessine à main levée près d'un mur.", "idle");
+      ["ridge", "step", "conf"].forEach((n) => setMeter(n, null));
+      return;
+    }
+    const n = p.points.length - 1;
+    const segs = `${n} mur${n > 1 ? "s" : ""}`;
+    if (p.ok) {
+      const kind = p.weights.ridge >= p.weights.step ? "un trait dessiné" : "un bord de matière";
+      setVerdict(`${segs} collé${n > 1 ? "s" : ""} sur ${kind}${p.closed ? ", boucle fermée" : ""}.`);
+    } else {
+      setVerdict(`Pas de paroi nette ici : ${segs} tracé${n > 1 ? "s" : ""} tel quel.`, "warn");
+    }
+    setMeter("ridge", p.weights.ridge);
+    setMeter("step", p.weights.step);
+    setMeter("conf", p.confidence);
+  }
+
+  function clearPreview() {
+    state.preview = null;
+    state.rawStroke = null;
+    showResult();
+    draw();
+  }
+
+  function accept() {
+    const p = state.preview;
+    if (!p) return;
+    let added = 0;
+    for (let i = 0; i < p.points.length - 1; i++) {
+      const a = p.points[i], b = p.points[i + 1];
+      if (a[0] === b[0] && a[1] === b[1]) continue;
+      state.walls.push({ id: "w" + state.nextId++, c: [a[0], a[1], b[0], b[1]] });
+      added++;
+    }
+    if (added) state.history.push(added);
+    clearPreview();
+    updateWalls();
+  }
+
+  function undo() {
+    if (state.preview) return clearPreview();
+    const n = state.history.pop();
+    if (!n) return;
+    state.walls.splice(-n, n);
+    updateWalls();
+    draw();
+  }
+
+  function updateWalls() {
+    $("wall-count").textContent = state.walls.length;
+    $("undo").disabled = !state.history.length && !state.preview;
+    $("clear").disabled = !state.walls.length;
+  }
+
+  /* ---------- Saisie ---------- */
+
+  let drag = null;
+
+  view.addEventListener("pointerdown", (e) => {
+    if (!state.image) return;
+    view.setPointerCapture(e.pointerId);
+    const r = view.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    const panning = state.tool === "pan" || state.spaceHeld || e.button === 1;
+    if (panning) {
+      drag = { mode: "pan", sx, sy, vx: state.view.x, vy: state.view.y };
+      return;
+    }
+    if (e.button !== 0) return;
+    drag = { mode: "draw", sx, sy, moved: false };
+    state.stroke = [toWorld(sx, sy)];
+  });
+
+  view.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = view.getBoundingClientRect();
+    const sx = e.clientX - r.left, sy = e.clientY - r.top;
+    if (drag.mode === "pan") {
+      state.view.x = drag.vx + sx - drag.sx;
+      state.view.y = drag.vy + sy - drag.sy;
+      draw();
+      return;
+    }
+    if (!drag.moved && Math.hypot(sx - drag.sx, sy - drag.sy) < 4) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      // un nouveau trait remplace l'aperçu non validé
+      state.preview = null;
+      state.rawStroke = null;
+      showResult();
+    }
+    const p = toWorld(sx, sy);
+    const last = state.stroke[state.stroke.length - 1];
+    if (Math.hypot(p[0] - last[0], p[1] - last[1]) * state.view.scale >= 2) state.stroke.push(p);
+    draw();
+  });
+
+  const endDrag = () => {
+    if (!drag) return;
+    if (drag.mode === "draw") {
+      if (!drag.moved) {
+        // simple clic : valide l'aperçu en attente
+        state.stroke = null;
+        if (state.preview) accept();
+      } else if (state.stroke.length > 1) {
+        state.rawStroke = state.stroke;
+        state.stroke = null;
+        runSnap();
+      }
+      state.stroke = null;
+    }
+    drag = null;
+    draw();
+  };
+  view.addEventListener("pointerup", endDrag);
+  view.addEventListener("pointercancel", () => {
+    drag = null;
+    state.stroke = null;
+    draw();
+  });
+
+  view.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const r = view.getBoundingClientRect();
+    zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.target.matches("input")) return;
+    if (e.key === "Enter") { e.preventDefault(); accept(); }
+    else if (e.key === "Escape") clearPreview();
+    else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") { e.preventDefault(); undo(); }
+    else if (e.code === "Space" && !state.spaceHeld) {
+      e.preventDefault();
+      state.spaceHeld = true;
+      map.classList.add("pan");
+    }
+  });
+  document.addEventListener("keyup", (e) => {
+    if (e.code === "Space") {
+      state.spaceHeld = false;
+      map.classList.toggle("pan", state.tool === "pan");
+    }
+  });
+
+  function setTool(tool) {
+    state.tool = tool;
+    $("tool-brush").setAttribute("aria-pressed", String(tool === "brush"));
+    $("tool-pan").setAttribute("aria-pressed", String(tool === "pan"));
+    map.classList.toggle("pan", tool === "pan");
+  }
+
+  $("tool-brush").onclick = () => setTool("brush");
+  $("tool-pan").onclick = () => setTool("pan");
+  $("accept").onclick = accept;
+  $("reject").onclick = clearPreview;
+  $("undo").onclick = undo;
+  $("clear").onclick = () => {
+    state.walls = [];
+    state.history = [];
+    updateWalls();
+    draw();
+  };
+  $("zoom-in").onclick = () => { const r = map.getBoundingClientRect(); zoomAt(1.25, r.width / 2, r.height / 2); };
+  $("zoom-out").onclick = () => { const r = map.getBoundingClientRect(); zoomAt(0.8, r.width / 2, r.height / 2); };
+  $("zoom-fit").onclick = fitView;
+  $("demo-drawn").onclick = () => { setDemoButtons("drawn"); setImage(demoDrawn()); seedDrawn(); };
+  $("demo-real").onclick = () => { setDemoButtons("real"); setImage(demoReal()); seedReal(); };
+  $("file").onchange = (e) => loadFile(e.target.files[0]);
+
+  for (const id of ["radius", "simplify", "pull"]) {
+    const input = $(id);
+    const show = () => {
+      const unit = id === "pull" ? "" : " px";
+      $("out-" + id).textContent = (+input.value).toLocaleString("fr-FR") + unit;
+    };
+    show();
+    input.addEventListener("input", () => { show(); runSnap(); draw(); });
+  }
+
+  // Glisser-déposer d'une carte
+  let dragDepth = 0;
+  map.addEventListener("dragenter", (e) => { e.preventDefault(); dragDepth++; $("drop").hidden = false; });
+  map.addEventListener("dragover", (e) => e.preventDefault());
+  map.addEventListener("dragleave", () => { if (--dragDepth <= 0) { dragDepth = 0; $("drop").hidden = true; } });
+  map.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    $("drop").hidden = true;
+    loadFile(e.dataTransfer.files[0]);
+  });
+
+  /* ---------- Exemples de départ ---------- */
+
+  function jitter(points, offset, seed) {
+    let s = seed;
+    const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296 - 0.5);
+    return resample(points, 6).map(([x, y]) => [x + offset[0] + r() * 5, y + offset[1] + r() * 5]);
+  }
+
+  function seedDrawn() {
+    // un mur déjà validé, puis un angle en aperçu
+    state.rawStroke = jitter([[170, 150], [590, 150]], [0, 14], 3);
+    runSnap();
+    accept();
+    state.rawStroke = jitter([[700, 250], [1050, 250], [1050, 560]], [-13, 12], 8);
+    runSnap();
+  }
+
+  function seedReal() {
+    state.rawStroke = jitter([[230, 150], [1170, 150]], [0, 18], 4);
+    runSnap();
+    accept();
+    state.rawStroke = jitter([[650, 560], [650, 820]], [17, 0], 6);
+    runSnap();
+  }
+
+  new ResizeObserver(() => { resize(); }).observe(map);
+  resize();
+  setImage(demoDrawn());
+  seedDrawn();
+})();
+</script>
