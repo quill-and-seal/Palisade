@@ -41,6 +41,8 @@ L'outil **pinceau** (icône pinceau, dans les outils des murs) pose les murs en 
 2. Relâche : le trait se colle aux murs dessinés et prend les angles avec eux. L'aperçu ambre montre les murs qui vont être créés (en rouge si aucun mur net n'a été trouvé : le trait est alors gardé tel quel).
 3. **Entrée** ou un clic crée les murs, **Échap** annule. Un nouveau trait remplace l'aperçu.
 
+Pendant que l'outil est actif, un petit panneau en haut de la vue règle la **précision** : bouger le curseur recalcule aussitôt l'aperçu en attente.
+
 Le pinceau reconnaît seul les murs dessinés (traits sombres, murs de pierre) et les bords de matière, et cherche jusqu'à 48 px à l'écran autour du trait (réglable). Zoomer rend la recherche plus fine. Les murs créés s'accrochent aux murs voisins comme les autres.
 
 Limites : le pinceau lit l'image de fond de la scène, pas les tuiles. Si les joints du sol (parquet, dallage) sont aussi marqués que les murs et plus proches du trait, il peut les suivre : dessine alors sur le mur lui-même. Le banc d'essai `tools/brush-lab.html` permet de tester le pinceau sur une carte hors de Foundry.

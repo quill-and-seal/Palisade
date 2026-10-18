@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4
+
+- Pinceau : panneau dans la vue pour régler la précision sans ouvrir les réglages ; l'aperçu en attente se recalcule aussitôt.
+
 ## 0.1.0
 
 Première version : des murs auto-reliés.

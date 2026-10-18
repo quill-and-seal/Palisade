@@ -43,7 +43,8 @@
     "Brush": {
       "NoBackground": "The brush reads the scene's background image, and this scene has none.",
       "NoWall": "No clear wall here: the preview keeps your stroke as drawn. Enter to create it anyway, Escape to cancel.",
-      "ReadError": "The brush could not read the background image ({message}). If it is hosted on another site, copy it into Foundry's data."
+      "ReadError": "The brush could not read the background image ({message}). If it is hosted on another site, copy it into Foundry's data.",
+      "Precision": "Precision"
     }
   }
 }

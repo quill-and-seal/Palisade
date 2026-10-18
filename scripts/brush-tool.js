@@ -9,7 +9,7 @@
  * (déplacer la vue) et la molette (zoom) restent à Foundry.
  */
 
-import { setting, t } from "./constants.js";
+import { MODULE_ID, setting, t } from "./constants.js";
 import { snapStroke } from "./brush.js";
 
 export const BRUSH_TOOL = "palisade-brush";
@@ -134,7 +134,7 @@ function clear() {
   state.graphics?.clear();
 }
 
-async function snap() {
+async function snap({ quiet = false } = {}) {
   // distances réglées en pixels à l'écran : le pinceau garde la même finesse à tout zoom
   const radius = setting("brushRadius") / canvas.stage.scale.x;
   const simplify = setting("brushDetail") / canvas.stage.scale.x;
@@ -143,7 +143,7 @@ async function snap() {
     const image = await readBackground(state.stroke, radius);
     if (!image) return clear();
     state.result = snapStroke(state.stroke, image, { radius, simplify });
-    if (!state.result.ok) ui.notifications.warn(t("PALISADE.Brush.NoWall"));
+    if (!state.result.ok && !quiet) ui.notifications.warn(t("PALISADE.Brush.NoWall"));
     draw();
   } catch (err) {
     console.error("Palisade |", err);
@@ -164,6 +164,49 @@ async function accept() {
     if (a[0] !== b[0] || a[1] !== b[1]) data.push({ c: [a[0], a[1], b[0], b[1]] });
   }
   if (data.length) await canvas.scene.createEmbeddedDocuments("Wall", data);
+}
+
+/* -------------------------------------------- */
+/*  Panneau dans la vue                         */
+/* -------------------------------------------- */
+
+let panel = null;
+let resnapTimer = 0;
+
+/** Petit panneau affiché avec l'outil : la précision se règle sans quitter la carte. */
+function syncPanel() {
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "palisade-brush-panel";
+    panel.style.cssText =
+      "position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:100;align-items:center;" +
+      "gap:10px;padding:6px 12px;border-radius:6px;background:rgba(15,15,20,.85);color:#eee;" +
+      "border:1px solid rgba(255,255,255,.2);font-size:13px;box-shadow:0 2px 8px rgba(0,0,0,.5)";
+    panel.innerHTML =
+      `<i class="fa-solid fa-paintbrush"></i><label for="palisade-brush-detail">${t("PALISADE.Brush.Precision")}</label>` +
+      `<input id="palisade-brush-detail" type="range" min="1" max="10" step="0.5" style="width:140px">` +
+      `<output for="palisade-brush-detail" style="min-width:3.5em;text-align:right"></output>`;
+    const input = panel.querySelector("input");
+    const output = panel.querySelector("output");
+    input.addEventListener("input", () => {
+      output.value = `${input.value} px`;
+      clearTimeout(resnapTimer);
+      resnapTimer = setTimeout(async () => {
+        await game.settings.set(MODULE_ID, "brushDetail", Number(input.value));
+        // l'aperçu en attente suit le nouveau réglage
+        if (state.stroke && state.result && !state.busy) snap({ quiet: true });
+      }, 150);
+    });
+    document.body.append(panel);
+  }
+  // en style direct : l'attribut hidden ne l'emporte pas sur un display posé en ligne
+  const visible = isActive();
+  panel.style.display = visible ? "flex" : "none";
+  if (visible) {
+    const input = panel.querySelector("input");
+    input.value = setting("brushDetail");
+    panel.querySelector("output").value = `${input.value} px`;
+  }
 }
 
 /* -------------------------------------------- */
@@ -230,10 +273,12 @@ export function registerBrushTool() {
   // aperçu abandonné quand on change d'outil ou de scène
   Hooks.on("renderSceneControls", () => {
     if (!isActive()) clear();
+    syncPanel();
   });
   Hooks.on("canvasTearDown", () => {
     clear();
     state.graphics = null;
+    if (panel) panel.style.display = "none";
   });
 }
 
