@@ -219,15 +219,17 @@ function lineSums(rgb, n) {
  * segment et ne répond pas. Une vraie bande de matière, ou un trait, en est loin.
  * @param {Float32Array} rgb  ligne de n pixels (r, g, b entrelacés)
  */
-function ridgeLine(rgb, n, out, widthOut, mask) {
+function ridgeLine(rgb, n, out, widthOut, mask, darkOut) {
   const pre = lineSums(rgb, n);
   const nw = RIDGE_WIDTHS.length;
   for (let o = 0; o < n; o++) {
     out[o] = 0;
     widthOut[o] = 0;
+    darkOut[o] = 0;
     if (!mask[o]) continue;
     let best = 0;
     let bestH = 0;
+    let bestDark = 0;
     for (let k = 0; k < nw; k++) {
       const h = RIDGE_WIDTHS[k];
       const g = h < 2 ? 2 : h;
@@ -253,9 +255,16 @@ function ridgeLine(rgb, n, out, widthOut, mask) {
         best = v;
         bestH = h;
       }
+      // En niveaux de gris : un trait plus sombre que ses deux côtés (contour à l'encre)
+      const lumL = 0.299 * l0 + 0.587 * l1 + 0.114 * l2;
+      const lumM = 0.299 * m0 + 0.587 * m1 + 0.114 * m2;
+      const lumR = 0.299 * r0 + 0.587 * r1 + 0.114 * r2;
+      const dark = Math.min(lumL - lumM, lumR - lumM);
+      if (dark > bestDark) bestDark = dark;
     }
     out[o] = Math.sqrt(best / 3);
     widthOut[o] = 2 * bestH + 1;
+    darkOut[o] = bestDark;
   }
 }
 
@@ -353,6 +362,7 @@ function wallMaps(rgb, W, H, mask) {
   const ridge = new Float32Array(W * H);
   const step = new Float32Array(W * H);
   const width = new Float32Array(W * H);
+  const dark = new Float32Array(W * H);
   const maxLen = W + H;
   const buf = new Float32Array(maxLen * 3);
   const rOut = new Float32Array(maxLen);
@@ -360,6 +370,7 @@ function wallMaps(rgb, W, H, mask) {
   const idx = new Int32Array(maxLen);
   const wOut = new Float32Array(maxLen);
   const mOut = new Uint8Array(maxLen);
+  const dOut = new Float32Array(maxLen);
 
   const run = (x, y, dx, dy) => {
     let n = 0;
@@ -377,7 +388,7 @@ function wallMaps(rgb, W, H, mask) {
       y += dy;
     }
     if (n < 5 || !any) return;
-    ridgeLine(buf, n, rOut, wOut, mOut);
+    ridgeLine(buf, n, rOut, wOut, mOut, dOut);
     stepLine(buf, n, sOut, mOut);
     for (let k = 0; k < n; k++) {
       const i = idx[k];
@@ -387,6 +398,7 @@ function wallMaps(rgb, W, H, mask) {
         width[i] = dx && dy ? wOut[k] * Math.SQRT2 : wOut[k];
       }
       if (sOut[k] > step[i]) step[i] = sOut[k];
+      if (dOut[k] > dark[i]) dark[i] = dOut[k];
     }
   };
 
@@ -396,7 +408,7 @@ function wallMaps(rgb, W, H, mask) {
   for (let y = 1; y < H; y++) run(0, y, 1, 1);
   for (let x = 0; x < W; x++) run(x, H - 1, 1, -1);
   for (let y = 0; y < H - 1; y++) run(0, y, 1, -1);
-  return { ridge, step, width };
+  return { ridge, step, width, dark };
 }
 
 /** Distance (par excès d'au plus un demi-échantillon) de chaque pixel au trait, dans un rayon R. */
@@ -541,11 +553,11 @@ function cheapestPath(cost, W, from, to, box, acc, prev) {
  *        nombre de pixels d'image par unité monde
  * @param {object} [options]  voir BRUSH_DEFAULTS
  * @returns {{ok: boolean, points: number[][], confidence: number,
- *            weights: {ridge: number, step: number}, closed: boolean, path: number[][]}}
+ *            weights: {ridge: number, dark: number, step: number}, closed: boolean, path: number[][]}}
  *   ok         : des murs nets ont été trouvés (sinon `points` est le trait simplifié, non collé)
  *   points     : sommets des murs à créer, arrondis, en coordonnées monde
  *   confidence : 0–1, force moyenne des murs suivis
- *   weights    : part de chaque détecteur (bande / bord de matière)
+ *   weights    : part de chaque détecteur (bande de couleur / trait sombre / bord de matière)
  *   path       : chemin suivi avant simplification (pour l'aperçu)
  */
 export function snapStroke(stroke, image, options = {}) {
@@ -562,7 +574,7 @@ export function snapStroke(stroke, image, options = {}) {
     if (closed && pts.length > 2) pts[pts.length - 1] = [...pts[0]];
     return pts;
   };
-  const fallback = (confidence = 0, weights = { ridge: 0, step: 0 }) => {
+  const fallback = (confidence = 0, weights = { ridge: 0, dark: 0, step: 0 }) => {
     const pts = closeLoop(round(simplify(smoothPolyline(resample(stroke, 4), 2), opt.simplify)));
     return { ok: false, points: pts, confidence, weights, closed, path: pts };
   };
@@ -607,31 +619,39 @@ export function snapStroke(stroke, image, options = {}) {
 
   // Carte de force de mur, sur la bande ; puis notes des détecteurs et mélange adaptatif
   const rgb = readRegion(image, x0, y0, W, H, f);
-  const { ridge, step, width } = wallMaps(rgb, W, H, inBand);
+  const { ridge, step, width, dark } = wallMaps(rgb, W, H, inBand);
 
   // Référence haute de chaque détecteur : quasi-maximum de la bande (un écrêtage plus bas
   // aplatirait le sommet d'un trait, et le chemin ne viserait plus son milieu).
   const ridgeTop = percentile(ridge, 0.999, inBand);
   const stepTop = percentile(step, 0.999, inBand);
-  if (!ridgeTop && !stepTop) return fallback();
+  const darkTop = percentile(dark, 0.999, inBand);
+  if (!ridgeTop && !stepTop && !darkTop) return fallback();
   const contrast = (top) => Math.min(1, top / 24);
   // Un trait fait aussi réagir le détecteur de bord sur ses deux flancs, avec une force
-  // comparable ; sur une frontière de matière, la bande répond bien moins que le bord.
-  const lineLikeness = smoothstep(0.3, 0.6, stepTop ? ridgeTop / stepTop : 1);
+  // comparable ; sur une frontière de matière, une bande répond bien moins que le bord.
+  const lineLike = (top) => smoothstep(0.3, 0.6, stepTop ? top / stepTop : 1);
   const sharp = (values, top) => (top ? 1 - percentile(values, 0.5, inBand) / top : 0);
-  const sr = sharp(ridge, ridgeTop) * contrast(ridgeTop) * lineLikeness;
-  const se = sharp(step, stepTop) * contrast(stepTop) * (1 - lineLikeness);
-  const total = sr * sr + se * se;
+  // Trois détecteurs en concurrence, notés sur la bande : bande de couleur, trait sombre en
+  // niveaux de gris (contours à l'encre : les aplats colorés ne le gênent pas), bord de matière.
+  const scores = {
+    ridge: sharp(ridge, ridgeTop) * contrast(ridgeTop) * lineLike(ridgeTop),
+    dark: sharp(dark, darkTop) * contrast(darkTop) * lineLike(darkTop),
+    step: sharp(step, stepTop) * contrast(stepTop) * (1 - lineLike(Math.max(ridgeTop, darkTop)))
+  };
+  const sq = (v) => v ** 4; // le plus net l'emporte nettement
+  const total = sq(scores.ridge) + sq(scores.dark) + sq(scores.step);
   if (!total) return fallback();
-  const weights = { ridge: (sr * sr) / total, step: (se * se) / total };
+  const weights = { ridge: sq(scores.ridge) / total, dark: sq(scores.dark) / total, step: sq(scores.step) / total };
   const strength = new Float32Array(W * H);
   for (let i = 0; i < strength.length; i++) {
     const r = ridgeTop ? Math.min(1, ridge[i] / ridgeTop) : 0;
-    const s = stepTop ? Math.min(1, step[i] / stepTop) : 0;
-    strength[i] = weights.ridge * r + weights.step * s;
+    const dk = darkTop ? Math.min(1, dark[i] / darkTop) : 0;
+    const st = stepTop ? Math.min(1, step[i] / stepTop) : 0;
+    strength[i] = weights.ridge * r + weights.dark * dk + weights.step * st;
   }
 
-  if (opt.debug) opt.debug({ strength, ridge, step, W, H, x0, y0, f, ridgeTop, stepTop });
+  if (opt.debug) opt.debug({ strength, ridge, step, dark, W, H, x0, y0, f, ridgeTop, stepTop, darkTop });
 
   // Ancrages : le meilleur point de mur près du début et de la fin (tous les ~4R pour une boucle)
   const anchorNear = ([px, py]) => {
@@ -715,7 +735,7 @@ export function snapStroke(stroke, image, options = {}) {
   const kept = pixels.slice(s, e + 1);
   let sum = 0;
   for (const i of kept) sum += strength[i];
-  const confidence = Math.min(1, (sum / Math.max(1, kept.length)) * Math.max(contrast(ridgeTop), contrast(stepTop)));
+  const confidence = Math.min(1, (sum / Math.max(1, kept.length)) * Math.max(contrast(ridgeTop), contrast(stepTop), contrast(darkTop)));
   if (kept.length < 2 || confidence < opt.minConfidence) return fallback(confidence, weights);
 
   // Un mur épais a un milieu flou où le chemin ondule : la tolérance de simplification suit
@@ -723,7 +743,7 @@ export function snapStroke(stroke, image, options = {}) {
   const widths = kept.map((i) => width[i]).sort((a, b) => a - b);
   const thickness = (widths[widths.length >> 1] * f) / sc;
   // Bornée : une ombre portée floue autour d'un dessin gonfle l'épaisseur mesurée.
-  const tolerance = Math.max(opt.simplify, Math.min(6, thickness * 0.35 * weights.ridge));
+  const tolerance = Math.max(opt.simplify, Math.min(6, thickness * 0.35 * (weights.ridge + weights.dark)));
   const path = kept.map(toWorld);
   const shortLength = Math.max(10, tolerance * 4);
   const corners = sharpenCorners(simplify(smoothPolyline(path, 2), tolerance), shortLength, path, Math.max(6, tolerance * 2));

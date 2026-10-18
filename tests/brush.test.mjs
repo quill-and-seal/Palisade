@@ -44,7 +44,7 @@ test("mur dessiné : le trait se colle au milieu du trait sombre", () => {
   });
   const res = snapStroke(wobbly([[40, 100], [280, 100]], 13), img);
   assert.equal(res.ok, true);
-  assert.ok(res.weights.ridge > 0.5, `détecteur trait attendu, obtenu ${JSON.stringify(res.weights)}`);
+  assert.ok(res.weights.ridge + res.weights.dark > 0.5, `détecteur trait attendu, obtenu ${JSON.stringify(res.weights)}`);
   assert.ok(maxDistanceToLine(res.points, 1, 100) <= 1.5, JSON.stringify(res.points));
   assert.equal(res.points.length, 2, "une ligne droite donne un seul mur");
 });
@@ -202,10 +202,8 @@ test("capture du champignon : la boucle suit le contour du dessin, sans pointes 
   const data = new Uint8Array(blob.buffer, blob.byteOffset + 8, width * height * 4);
   const image = { width, height, data, originX: 160, originY: 40, scale: 0.25 };
   const stroke = [[465, 297], [430, 282], [380, 265], [330, 240], [308, 215], [310, 170], [330, 135], [380, 115], [450, 105], [530, 102], [568, 108], [620, 125], [680, 150], [730, 190], [770, 230], [800, 270], [825, 310], [832, 345], [825, 370], [770, 370], [700, 365], [660, 355], [610, 340], [608, 380], [612, 430], [605, 480], [580, 510], [560, 540], [540, 600], [528, 660], [528, 720], [532, 790], [535, 860], [525, 920], [505, 960], [470, 1010], [420, 1020], [340, 1020], [275, 1000], [255, 960], [262, 900], [280, 860], [300, 820], [320, 770], [345, 720], [370, 670], [395, 630], [410, 590], [430, 540], [425, 500], [400, 470], [395, 440], [420, 400], [450, 360], [465, 320], [468, 300]];
-  const res = snapStroke(stroke, image, { radius: 48 });
-  assert.equal(res.ok, true);
-  assert.equal(res.closed, true);
-  // distance (px d'image) de chaque point des segments au pixel sombre le plus proche
+
+  // distance (px d'image) de chaque pixel au pixel sombre le plus proche
   const dist = new Float32Array(width * height).fill(Infinity);
   const queue = [];
   for (let i = 0; i < width * height; i++) {
@@ -229,16 +227,23 @@ test("capture du champignon : la boucle suit le contour du dessin, sans pointes 
       }
     }
   }
-  let worst = 0;
-  for (let i = 0; i < res.points.length - 1; i++) {
-    const [a, b] = [res.points[i], res.points[i + 1]];
-    const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4));
-    for (let k = 0; k <= n; k++) {
-      const x = Math.round((a[0] + ((b[0] - a[0]) * k) / n - 160) / 4);
-      const y = Math.round((a[1] + ((b[1] - a[1]) * k) / n - 40) / 4);
-      worst = Math.max(worst, dist[Math.min(height - 1, Math.max(0, y)) * width + Math.min(width - 1, Math.max(0, x))]);
+
+  // zoom de la 1re capture (rayon 48) et de la 2e, moins zoomée (rayon 74 dans le même repère) ;
+  // versions précédentes : jusqu'à 11 px (angles inventés), puis 16 px au zoom de la 2e capture
+  for (const [radius, limit] of [[48, 8], [74, 12]]) {
+    const res = snapStroke(stroke, image, { radius });
+    assert.equal(res.ok, true);
+    assert.equal(res.closed, true);
+    let worst = 0;
+    for (let i = 0; i < res.points.length - 1; i++) {
+      const [a, b] = [res.points[i], res.points[i + 1]];
+      const n = Math.max(1, Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / 4));
+      for (let k = 0; k <= n; k++) {
+        const x = Math.round((a[0] + ((b[0] - a[0]) * k) / n - 160) / 4);
+        const y = Math.round((a[1] + ((b[1] - a[1]) * k) / n - 40) / 4);
+        worst = Math.max(worst, dist[Math.min(height - 1, Math.max(0, y)) * width + Math.min(width - 1, Math.max(0, x))]);
+      }
     }
+    assert.ok(worst <= limit, `rayon ${radius} : un segment s'écarte de ${worst} px d'image du contour`);
   }
-  // la version qui reconstruisait des angles sur les courbes s'écartait jusqu'à 11 px
-  assert.ok(worst <= 8, `un segment s'écarte de ${worst} px d'image du contour : ${JSON.stringify(res.points)}`);
 });

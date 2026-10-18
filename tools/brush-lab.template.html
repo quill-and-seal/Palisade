@@ -201,7 +201,9 @@
       <h2>Aperçu</h2>
       <div class="verdict idle" id="verdict">Dessine à main levée près d'un mur.</div>
       <div class="meter">
-        <label>Trait ou mur</label><output id="out-ridge">—</output>
+        <label>Trait sombre (noir et blanc)</label><output id="out-dark">—</output>
+        <div class="bar"><i id="bar-dark" style="background: var(--fg)"></i></div>
+        <label>Bande de couleur</label><output id="out-ridge">—</output>
         <div class="bar"><i id="bar-ridge" style="background: var(--ridge)"></i></div>
         <label>Bord de matière</label><output id="out-step">—</output>
         <div class="bar"><i id="bar-step" style="background: var(--step)"></i></div>
@@ -563,17 +565,19 @@
     $("accept").disabled = $("reject").disabled = !p;
     if (!p) {
       setVerdict("Dessine à main levée près d'un mur.", "idle");
-      ["ridge", "step", "conf"].forEach((n) => setMeter(n, null));
+      ["dark", "ridge", "step", "conf"].forEach((n) => setMeter(n, null));
       return;
     }
     const n = p.points.length - 1;
     const segs = `${n} mur${n > 1 ? "s" : ""}`;
     if (p.ok) {
-      const kind = p.weights.ridge >= p.weights.step ? "un trait ou un mur" : "un bord de matière";
+      const w = p.weights;
+      const kind = w.dark >= w.ridge && w.dark >= w.step ? "un trait sombre" : w.ridge >= w.step ? "un mur" : "un bord de matière";
       setVerdict(`${segs} collé${n > 1 ? "s" : ""} sur ${kind}${p.closed ? ", boucle fermée" : ""}.`);
     } else {
       setVerdict(`Pas de mur net ici : ${segs} tracé${n > 1 ? "s" : ""} tel quel.`, "warn");
     }
+    setMeter("dark", p.weights.dark);
     setMeter("ridge", p.weights.ridge);
     setMeter("step", p.weights.step);
     setMeter("conf", p.confidence);
