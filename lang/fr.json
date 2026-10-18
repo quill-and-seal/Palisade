@@ -1,7 +1,8 @@
 {
   "PALISADE": {
     "Controls": {
-      "Toggle": "Palisade : murs auto-reliés"
+      "Toggle": "Palisade : murs auto-reliés",
+      "Brush": "Pinceau : dessine près d'un mur de la carte, il s'y colle. Entrée ou clic : créer, Échap : annuler."
     },
     "Settings": {
       "Enabled": {
@@ -23,6 +24,10 @@
       "SkipDoors": {
         "Name": "Ne jamais couper les portes",
         "Hint": "Une porte touchée en son milieu reste entière."
+      },
+      "BrushRadius": {
+        "Name": "Pinceau : distance de recherche (px à l'écran)",
+        "Hint": "Jusqu'où le pinceau va chercher un mur autour du trait, mesuré à l'écran : zoomer rend la recherche plus fine. Propre à ce navigateur."
       }
     },
     "Keybindings": {
@@ -30,6 +35,11 @@
         "Name": "Sélectionner les murs reliés",
         "Hint": "Sélectionne tous les murs reliés au mur survolé (ou sélectionné)."
       }
+    },
+    "Brush": {
+      "NoBackground": "Le pinceau lit l'image de fond de la scène, et cette scène n'en a pas.",
+      "NoWall": "Pas de mur net à cet endroit : l'aperçu reprend ton trait tel quel. Entrée pour le créer quand même, Échap pour annuler.",
+      "ReadError": "Le pinceau n'a pas pu lire l'image de fond ({message}). Si elle est hébergée sur un autre site, copie-la dans les données de Foundry."
     }
   }
 }

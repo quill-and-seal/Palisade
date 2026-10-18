@@ -6,7 +6,7 @@ Une palissade, ce sont des pieux plantés côte à côte et liés entre eux. Pal
 
 Un module de l'atelier [Quill & Seal](https://github.com/quill-and-seal).
 
-> **État : 0.1.** Accroche, coupure en T et jointures qui suivent. La suite est dans [ROADMAP.md](ROADMAP.md).
+> **État : 0.1.** Accroche, coupure en T, jointures qui suivent, et pinceau qui colle les murs au dessin de la carte. La suite est dans [ROADMAP.md](ROADMAP.md).
 
 ## Installation
 
@@ -33,6 +33,18 @@ Le bouton **chaîne** dans les outils des murs coupe ou réactive Palisade. Prat
 
 Le raccourci **Maj + L** sélectionne tous les murs reliés au mur survolé, par exemple pour déplacer une pièce entière d'un coup. Il se change dans **Configurer les contrôles**.
 
+## Pinceau
+
+L'outil **pinceau** (icône pinceau, dans les outils des murs) pose les murs en suivant le dessin de la carte :
+
+1. Dessine à main levée le long d'un ou plusieurs murs du fond de scène, sans viser précisément.
+2. Relâche : le trait se colle aux murs dessinés et prend les angles avec eux. L'aperçu ambre montre les murs qui vont être créés (en rouge si aucun mur net n'a été trouvé : le trait est alors gardé tel quel).
+3. **Entrée** ou un clic crée les murs, **Échap** annule. Un nouveau trait remplace l'aperçu.
+
+Le pinceau reconnaît seul les murs dessinés (traits sombres, murs de pierre) et les bords de matière, et cherche jusqu'à 48 px à l'écran autour du trait (réglable). Zoomer rend la recherche plus fine. Les murs créés s'accrochent aux murs voisins comme les autres.
+
+Limites : le pinceau lit l'image de fond de la scène, pas les tuiles. Si les joints du sol (parquet, dallage) sont aussi marqués que les murs et plus proches du trait, il peut les suivre : dessine alors sur le mur lui-même. Le banc d'essai `tools/brush-lab.html` permet de tester le pinceau sur une carte hors de Foundry.
+
 ## Réglages
 
 | Réglage | Par défaut | Rôle |
@@ -42,6 +54,7 @@ Le raccourci **Maj + L** sélectionne tous les murs reliés au mur survolé, par
 | Jointures qui suivent | Activé | Les murs voisins suivent un point déplacé |
 | Coupure en T | Activé | Un mur touché en son milieu est coupé en deux |
 | Ne jamais couper les portes | Activé | Une porte touchée en son milieu reste entière |
+| Pinceau : distance de recherche | 48 px | Jusqu'où le pinceau cherche un mur autour du trait, à l'écran. Propre à ce navigateur |
 
 ## API
 
@@ -50,6 +63,7 @@ const palisade = game.modules.get("palisade").api;
 palisade.enabled;                 // la liaison est-elle active pour ce client
 palisade.connected(wall);         // Set des ids des murs reliés à ce mur
 palisade.selectConnected(wall);   // les sélectionne sur le canevas
+palisade.snapStroke(stroke, image, options); // colle un trait sur les murs d'une image
 palisade.geometry;                // fonctions de géométrie (accroche, coupure, jointures)
 ```
 
@@ -57,10 +71,12 @@ Les modifications faites par Palisade portent l'option `{ palisade: true }`, pou
 
 ## Développement
 
-La géométrie (`scripts/geometry.js`) ne dépend pas de Foundry et se teste avec Node :
+La géométrie (`scripts/geometry.js`) et le pinceau (`scripts/brush.js`) ne dépendent pas de Foundry et se testent avec Node :
 
 ```
 node --test tests/*.test.mjs
 ```
+
+Le banc d'essai du pinceau se reconstruit avec `node tools/build-brush-lab.mjs`.
 
 Une release GitHub publiée déclenche le workflow qui construit `module.json` et `module.zip` à partir du tag (`v0.1.0` → version `0.1.0`).

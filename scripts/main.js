@@ -6,12 +6,15 @@
  *   enabled                : true si la liaison est active pour ce client
  *   connected(wall)        : Set des ids des murs reliés à ce mur (lui compris)
  *   selectConnected(wall)  : sélectionne sur le canevas tous les murs reliés à ce mur
+ *   snapStroke(...)        : colle un trait sur les murs d'une image (voir brush.js)
  *   geometry               : fonctions de géométrie (voir geometry.js)
  */
 
 import { MODULE_ID, log } from "./constants.js";
 import { registerLinker, isEnabled } from "./linker.js";
+import { registerBrushTool, brushToolButton } from "./brush-tool.js";
 import * as geometry from "./geometry.js";
+import { snapStroke } from "./brush.js";
 
 /* -------------------------------------------- */
 /*  Réglages                                    */
@@ -56,6 +59,16 @@ function registerSettings() {
     default: true
   });
 
+  game.settings.register(MODULE_ID, "brushRadius", {
+    name: "PALISADE.Settings.BrushRadius.Name",
+    hint: "PALISADE.Settings.BrushRadius.Hint",
+    scope: "client",
+    config: true,
+    type: Number,
+    range: { min: 16, max: 120, step: 4 },
+    default: 48
+  });
+
   game.settings.register(MODULE_ID, "skipDoors", {
     name: "PALISADE.Settings.SkipDoors.Name",
     hint: "PALISADE.Settings.SkipDoors.Hint",
@@ -94,6 +107,7 @@ function selectConnected(wall) {
 Hooks.once("init", () => {
   registerSettings();
   registerLinker();
+  registerBrushTool();
 
   game.keybindings.register(MODULE_ID, "selectConnected", {
     name: "PALISADE.Keybindings.SelectConnected.Name",
@@ -114,6 +128,7 @@ Hooks.once("init", () => {
     },
     connected,
     selectConnected,
+    snapStroke,
     geometry
   };
 });
@@ -132,8 +147,9 @@ Hooks.on("getSceneControlButtons", (controls) => {
     order: 100,
     onChange: (event, active) => game.settings.set(MODULE_ID, "enabled", active)
   };
-  if (Array.isArray(walls.tools)) walls.tools.push(tool);
-  else walls.tools[MODULE_ID] = tool;
+  const brush = brushToolButton();
+  if (Array.isArray(walls.tools)) walls.tools.push(tool, brush);
+  else Object.assign(walls.tools, { [MODULE_ID]: tool, [brush.name]: brush });
 });
 
 Hooks.once("ready", () => log("prêt"));

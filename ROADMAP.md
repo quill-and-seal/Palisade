@@ -8,11 +8,13 @@
 - **Aperçu pendant le tracé** : marquer le point où l'extrémité va s'accrocher avant de relâcher la souris.
 - **Contrôle des trous** : repérer les extrémités isolées de la scène, là où la lumière risque de passer.
 
-## Pinceau (en cours)
+## Pinceau
 
 Un outil pinceau dans les outils des murs : on dessine à main levée près d'une paroi de la carte, le trait se colle à la paroi dessinée (trait sombre ou bord de matière, choisi automatiquement), un aperçu s'affiche, on valide avec Entrée ou un clic.
 
 - [x] Algorithme (`scripts/brush.js`) : carte de force de mur en 2D, chemin le moins coûteux entre le début et la fin du trait, bouts sans mur retirés, angles vifs ; tests sur images synthétiques
 - Limite connue : quand les joints du sol (parquet, dallage) sont aussi marqués que les murs et plus proches du trait, le pinceau peut les suivre. Dessiner sur le mur lui-même règle le cas. Une simple frontière de matière (parquet contre dallage, sans mur dessiné) n'est bien suivie que si aucun mur ni joint marqué n'est dans la zone de recherche.
 - [x] Banc d'essai hors Foundry (`tools/brush-lab.html`, construit par `node tools/build-brush-lab.mjs`)
-- [ ] Intégration dans Foundry : outil, lecture du fond de scène, aperçu, création des murs
+- [x] Intégration dans Foundry : outil, lecture du fond de scène, aperçu, création des murs
+- [ ] Lire aussi les tuiles (cartes posées en tuiles plutôt qu'en fond de scène)
+- [ ] Choisir le type de mur créé (normal, terrain, invisible…)

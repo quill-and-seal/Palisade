@@ -100,3 +100,16 @@ test("trouve tous les murs reliés", () => {
   ];
   assert.deepEqual([...connectedWalls("a", walls)].sort(), ["a", "b", "c"]);
 });
+
+test("pinceau : zone d'image lue autour du trait, avec origine et échelle", async () => {
+  const { imageRegion } = await import("../scripts/brush-tool.js");
+  // image de 2000 px affichée sur 1000 unités monde, à partir de (100, 50)
+  const place = { x: 100, y: 50, width: 1000, height: 500, naturalWidth: 2000, naturalHeight: 1000 };
+  const r = imageRegion([[300, 200], [400, 250]], 20, place);
+  // trait en pixels d'image : x 400–600, y 300–400 ; marge 20 × 2 + 40 = 80
+  assert.deepEqual([r.sx, r.sy, r.sw, r.sh], [320, 220, 360, 260]);
+  assert.deepEqual([r.originX, r.originY, r.scale], [260, 160, 2]);
+  // bornée à l'image
+  const edge = imageRegion([[100, 50], [120, 60]], 20, place);
+  assert.deepEqual([edge.sx, edge.sy], [0, 0]);
+});
