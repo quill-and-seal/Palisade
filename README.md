@@ -41,9 +41,9 @@ L'outil **pinceau** (icône pinceau, dans les outils des murs) pose les murs en 
 2. Relâche : le trait se colle aux murs dessinés et prend les angles avec eux. L'aperçu ambre montre les murs qui vont être créés (en rouge si aucun mur net n'a été trouvé : le trait est alors gardé tel quel).
 3. **Entrée** ou un clic crée les murs, **Échap** annule. Un nouveau trait remplace l'aperçu.
 
-À la création, les points du trait se soudent aux points et aux murs déjà posés (8 px à l'écran), et les passages qui repassent sur un mur existant ne sont pas recréés : pas de murs superposés.
+À la création, les points du trait se soudent aux points et aux murs déjà posés (distance d'accroche, 12 px à l'écran), et les passages qui repassent sur un mur existant ne sont pas recréés : pas de murs superposés.
 
-Au moment de valider, tant que l'aperçu attend, un **cadran** apparaît à gauche de la vue :
+Au moment de valider, tant que l'aperçu attend, un **cadran** apparaît là où tu as lâché le trait, bouton central sous le curseur :
 
 - le **bouton central** règle la précision (molette, glisser vers le haut ou le bas, ou flèches du clavier) ; la graduation à gauche suit la valeur, et l'aperçu en attente se recalcule aussitôt ;
 - les **segments de droite** choisissent le type de mur créé (clic sur le segment ou sur son nom) :
@@ -64,7 +64,7 @@ Limites : le pinceau lit l'image de fond de la scène, pas les tuiles. Si les jo
 | Réglage | Par défaut | Rôle |
 |---|---|---|
 | Murs auto-reliés | Activé | Interrupteur général, propre à ce navigateur (le même que le bouton chaîne) |
-| Distance d'accroche | 12 px | Rayon dans lequel une extrémité se colle à un autre mur. 0 désactive l'accroche |
+| Distance d'accroche | 12 px | Rayon, à l'écran, dans lequel une extrémité se colle à un autre mur (sert aussi à souder les murs du pinceau). 0 désactive l'accroche |
 | Jointures qui suivent | Activé | Les murs voisins suivent un point déplacé |
 | Coupure en T | Activé | Un mur touché en son milieu est coupé en deux |
 | Ne jamais couper les portes | Activé | Une porte touchée en son milieu reste entière |

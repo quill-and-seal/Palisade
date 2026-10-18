@@ -9,7 +9,7 @@
  * (déplacer la vue) et la molette (zoom) restent à Foundry.
  */
 
-import { MODULE_ID, setting, t } from "./constants.js";
+import { MODULE_ID, setting, snapTolerance, t } from "./constants.js";
 import { snapStroke } from "./brush.js";
 import { weldChain } from "./geometry.js";
 import { createDial } from "./brush-dial.js";
@@ -17,7 +17,6 @@ import { createDial } from "./brush-dial.js";
 export const BRUSH_TOOL = "palisade-brush";
 const CONTEXT_PX = 40; // pixels d'image lus en plus du rayon : contexte des détecteurs (MARGIN de brush.js)
 const CLICK_PX = 4;
-const WELD_PX = 8; // distance de soudure à l'écran
 
 /** Types de mur que le pinceau peut créer : propriétés du mur, sur le modèle des outils de Foundry. */
 export const WALL_TYPES = ["normal", "ethereal", "invisible", "terrain"];
@@ -183,9 +182,11 @@ async function accept() {
   if (!pts || pts.length < 2) return;
   // soudure aux murs existants et au trait lui-même : pas de points doublés ni de murs superposés
   const walls = canvas.scene.walls.map((w) => ({ id: w.id, c: [...w.c] }));
-  const segments = weldChain(pts, walls, WELD_PX / canvas.stage.scale.x);
+  const segments = weldChain(pts, walls, snapTolerance());
   const type = wallTypeData(setting("brushWallType"));
-  if (segments.length) await canvas.scene.createEmbeddedDocuments("Wall", segments.map((c) => ({ c, ...type })));
+  if (segments.length) {
+    await canvas.scene.createEmbeddedDocuments("Wall", segments.map((c) => ({ c, ...type })), { palisadeBrush: true });
+  }
 }
 
 /* -------------------------------------------- */
@@ -202,7 +203,7 @@ const TYPE_ICONS = {
   terrain: "fa-solid fa-mountain"
 };
 
-/** Cadran affiché au moment de valider (aperçu en attente) : précision et type de mur s'y règlent. */
+/** Cadran affiché au moment de valider, là où le trait a été lâché : précision et type de mur s'y règlent. */
 function syncPanel() {
   if (!dial) {
     dial = createDial({
@@ -232,6 +233,15 @@ function syncPanel() {
   // en style direct : l'attribut hidden ne l'emporte pas sur un display posé en ligne
   const visible = isActive() && !!state.result;
   dial.element.style.display = visible ? "" : "none";
+  if (visible && state.anchor) {
+    // bouton central sous le curseur (centre du cadran à 130 px du coin), sans sortir de l'écran
+    const [x, y] = state.anchor;
+    const { offsetWidth: w, offsetHeight: h } = dial.element;
+    const left = Math.min(Math.max(8, x - 130), window.innerWidth - w - 60);
+    const top = Math.min(Math.max(20, y - 130), window.innerHeight - h - 8);
+    Object.assign(dial.element.style, { left: `${left}px`, top: `${top}px`, transform: "none" });
+    state.anchor = null; // un recalcul de l'aperçu ne déplace pas le cadran
+  }
   if (visible) dial.sync();
 }
 
@@ -278,6 +288,8 @@ function onPointerUp(event) {
   }
   if (stroke.length < 2) return clear();
   state.stroke = stroke;
+  // le cadran s'ouvrira sous le curseur, là où le trait a été lâché
+  state.anchor = [event.clientX, event.clientY];
   snap();
 }
 

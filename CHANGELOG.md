@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8
+
+- Pinceau : le cadran s'ouvre là où le trait est lâché, bouton central sous le curseur (un coup de molette règle aussitôt la précision).
+- Soudure : un mur plus court que la distance d'accroche reste soudé par son extrémité la plus proche (il gardait sa position d'origine et se détachait de ses voisins).
+- Accroche : la distance d'accroche se mesure à l'écran (12 px), même sensation à tout zoom ; le pinceau soude avec la même distance et ses murs ne sont plus ré-accrochés un par un.
+
 ## 0.1.7
 
 - Pinceau : nouveau cadran à la place du panneau. Bouton moleté au centre pour la précision (molette, glisser, flèches), graduation de 1 à 10 px, segments de type de mur reliés à leur nom en éventail. Il n'apparaît qu'au moment de valider, tant que l'aperçu attend.

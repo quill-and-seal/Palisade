@@ -30,7 +30,8 @@ test("une tolérance nulle n'accroche rien", () => {
 test("un mur ne s'accroche pas à lui-même et n'est jamais rendu nul", () => {
   const walls = [wall("a", [0, 0, 5, 0])];
   assert.deepEqual(snapCoords([0, 0, 5, 0], walls, 10, "a"), [0, 0, 5, 0]);
-  assert.deepEqual(snapCoords([1, 1, 2, 2], [wall("b", [0, 0, 100, 100])], 10), [1, 1, 2, 2]);
+  // mur plus court que la distance d'accroche : seule l'extrémité la plus proche est soudée
+  assert.deepEqual(snapCoords([1, 1, 2, 2], [wall("b", [0, 0, 100, 100])], 10), [0, 0, 2, 2]);
 });
 
 test("seules les extrémités demandées sont accrochées", () => {
@@ -143,3 +144,17 @@ test("pinceau : propriétés des types de mur (traversable = les personnages pas
   assert.deepEqual(wallTypeData("invisible"), { sight: 0, light: 0, sound: 0 });
   assert.deepEqual(wallTypeData("terrain"), { sight: 10, light: 10, sound: 10 });
 });
+
+test("accroche d'un mur plus court que la distance d'accroche : il reste soudé par une extrémité", () => {
+  // les deux extrémités du petit mur visent le même point existant (100, 0)
+  const walls = [wall("a", [0, 0, 100, 0])];
+  const out = snapCoords([102, 3, 106, 8], walls, 12);
+  assert.equal(isDegenerateLocal(out), false);
+  assert.ok((out[0] === 100 && out[1] === 0) || (out[2] === 100 && out[3] === 0), `aucune extrémité soudée : ${out}`);
+  // c'est l'extrémité la plus proche qui est soudée
+  assert.deepEqual(out, [100, 0, 106, 8]);
+});
+
+function isDegenerateLocal(c) {
+  return c[0] === c[2] && c[1] === c[3];
+}

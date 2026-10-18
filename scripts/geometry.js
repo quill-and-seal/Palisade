@@ -87,7 +87,15 @@ export function snapCoords(c, walls, tolerance, excludeId = null, which = [true,
   const na = which[0] ? snapPoint(a, walls, tolerance, excludeId) : a;
   const nb = which[1] ? snapPoint(b, walls, tolerance, excludeId) : b;
   const out = toCoords(na, nb);
-  return isDegenerate(out) ? [...c] : out;
+  if (!isDegenerate(out)) return out;
+  // Les deux extrémités visent le même point (mur plus court que la distance d'accroche) :
+  // on accroche seulement celle qui bouge le moins, l'autre reste en place.
+  const keepA = toCoords(a, nb);
+  const keepB = toCoords(na, b);
+  const candidates = [keepB, keepA].filter((x) => !isDegenerate(x) && !(samePoint(endpoints(x)[0], a) && samePoint(endpoints(x)[1], b)));
+  if (!candidates.length) return [...c];
+  const moved = (x) => dist2(endpoints(x)[0], a) + dist2(endpoints(x)[1], b);
+  return candidates.sort((x, y) => moved(x) - moved(y))[0];
 }
 
 /**

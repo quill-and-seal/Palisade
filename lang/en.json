@@ -10,8 +10,8 @@
         "Hint": "Snaps walls together while drawing and keeps joints when you move them. Also toggled with the chain button in the wall tools. Per browser."
       },
       "SnapDistance": {
-        "Name": "Snap distance (px)",
-        "Hint": "An endpoint dropped closer than this to another wall sticks to it: to its endpoint first, otherwise to its middle. 0 disables snapping."
+        "Name": "Snap distance (screen px)",
+        "Hint": "An endpoint dropped closer than this to another wall sticks to it: to its endpoint first, otherwise to its middle. Measured on screen: same feel at any zoom. Also used to weld brush walls. 0 disables snapping."
       },
       "MoveJoints": {
         "Name": "Joints follow",

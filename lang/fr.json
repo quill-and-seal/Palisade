@@ -10,8 +10,8 @@
         "Hint": "Accroche les murs entre eux pendant le tracé et garde les jointures quand tu les déplaces. Se coupe aussi avec le bouton chaîne dans les outils des murs. Propre à ce navigateur."
       },
       "SnapDistance": {
-        "Name": "Distance d'accroche (px)",
-        "Hint": "Une extrémité posée à moins de cette distance d'un autre mur s'y colle : à son extrémité en priorité, sinon à son milieu. 0 désactive l'accroche."
+        "Name": "Distance d'accroche (px à l'écran)",
+        "Hint": "Une extrémité posée à moins de cette distance d'un autre mur s'y colle : à son extrémité en priorité, sinon à son milieu. Mesurée à l'écran : même sensation à tout zoom. Sert aussi à souder les murs du pinceau. 0 désactive l'accroche."
       },
       "MoveJoints": {
         "Name": "Jointures qui suivent",

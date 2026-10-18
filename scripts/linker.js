@@ -11,7 +11,7 @@
  * portent l'option { palisade: true } pour ne pas se déclencher elles-mêmes.
  */
 
-import { MODULE_ID, setting } from "./constants.js";
+import { MODULE_ID, setting, snapTolerance } from "./constants.js";
 import { snapCoords, planJointMoves, planSplits, endpoints, samePoint } from "./geometry.js";
 
 /** Anciennes coordonnées des murs en cours de mise à jour, par uuid. */
@@ -43,7 +43,9 @@ function queueFor(scene) {
 
 function onPreCreateWall(doc, data, options, userId) {
   if (!shouldHandle(options, userId) || !doc.parent) return;
-  const tolerance = setting("snapDistance");
+  // les murs du pinceau arrivent déjà soudés (weldChain) : ne pas les ré-accrocher un par un
+  if (options?.palisadeBrush) return;
+  const tolerance = snapTolerance();
   const c = snapCoords([...doc.c], wallsOf(doc.parent), tolerance, doc.id);
   if (c.some((v, i) => v !== doc.c[i])) doc.updateSource({ c });
 }
@@ -58,7 +60,7 @@ function onPreUpdateWall(doc, changes, options, userId) {
   const [newA, newB] = endpoints(changes.c);
   const which = [!samePoint(oldA, newA), !samePoint(oldB, newB)];
   if (!which[0] && !which[1]) return;
-  changes.c = snapCoords(changes.c, wallsOf(doc.parent), setting("snapDistance"), doc.id, which);
+  changes.c = snapCoords(changes.c, wallsOf(doc.parent), snapTolerance(), doc.id, which);
 }
 
 /* -------------------------------------------- */
