@@ -39,11 +39,11 @@ L'outil **pinceau** (icône pinceau, dans les outils des murs) pose les murs en 
 
 1. Dessine à main levée le long d'un ou plusieurs murs du fond de scène, sans viser précisément.
 2. Relâche : le trait se colle aux murs dessinés et prend les angles avec eux. L'aperçu ambre montre les murs qui vont être créés (en rouge si aucun mur net n'a été trouvé : le trait est alors gardé tel quel).
-3. **Entrée** ou un clic crée les murs, **Échap** annule. Un nouveau trait remplace l'aperçu.
+3. **Clique** pour valider : le cadran s'ouvre à l'endroit du clic. Règle la précision et le type de mur, puis **Appliquer** crée les murs (**Annuler** les abandonne). Entrée et Échap font la même chose au clavier. Un nouveau trait remplace l'aperçu.
 
 À la création, les points du trait se soudent aux points et aux murs déjà posés (distance d'accroche, 12 px à l'écran), et les passages qui repassent sur un mur existant ne sont pas recréés : pas de murs superposés.
 
-Au moment de valider, tant que l'aperçu attend, un **cadran** apparaît là où tu as lâché le trait, bouton central sous le curseur :
+Le **cadran** s'ouvre à l'endroit où tu cliques pour valider, bouton central sous le curseur :
 
 - le **bouton central** règle la précision (molette, glisser vers le haut ou le bas, ou flèches du clavier) ; la graduation à gauche suit la valeur, et l'aperçu en attente se recalcule aussitôt ;
 - les **segments de droite** choisissent le type de mur créé (clic sur le segment ou sur son nom) :

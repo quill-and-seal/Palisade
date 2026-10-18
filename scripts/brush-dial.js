@@ -54,7 +54,11 @@ function arc(r, a1, a2) {
  * @param {(key: string) => void} o.onType
  * @param {string} o.caption  légende du bouton (« Précision »)
  * @param {string} o.knobTitle
- * @param {string} o.hint      ligne d'aide sous le cadran
+ * @param {string} o.hint      ligne d'aide au-dessus du cadran
+ * @param {() => void} o.onApply   bouton « Appliquer »
+ * @param {() => void} o.onCancel  bouton « Annuler »
+ * @param {string} o.applyLabel
+ * @param {string} o.cancelLabel
  * @returns {{element: HTMLElement, sync: () => void}}
  */
 export function createDial(o) {
@@ -148,6 +152,15 @@ export function createDial(o) {
   hint.className = "pal-hint";
   hint.textContent = o.hint;
   root.append(hint);
+
+  const actions = document.createElement("div");
+  actions.className = "pal-actions";
+  actions.innerHTML =
+    `<button type="button" class="pal-cancel">${o.cancelLabel}</button>` +
+    `<button type="button" class="pal-apply"><i class="fa-solid fa-check"></i> ${o.applyLabel}</button>`;
+  actions.querySelector(".pal-cancel").addEventListener("click", () => o.onCancel());
+  actions.querySelector(".pal-apply").addEventListener("click", () => o.onApply());
+  root.append(actions);
 
   // --- état
   let detail = clampDetail(o.getDetail());

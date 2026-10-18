@@ -51,7 +51,9 @@
       "Precision": "Précision",
       "Type": "Type",
       "KnobHint": "Précision : molette, glisser vers le haut ou le bas, ou flèches du clavier",
-      "Keys": "Entrée : créer les murs · Échap : annuler"
+      "Keys": "Entrée : appliquer · Échap : annuler",
+      "Apply": "Appliquer",
+      "Cancel": "Annuler"
     },
     "WallTypes": {
       "normal": "Normal",

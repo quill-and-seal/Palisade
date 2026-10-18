@@ -107,7 +107,7 @@ async function readBackground(points, radius) {
 /*  Outil                                       */
 /* -------------------------------------------- */
 
-const state = { drawing: null, stroke: null, result: null, graphics: null, busy: false };
+const state = { drawing: null, stroke: null, result: null, graphics: null, busy: false, dialOpen: false, anchor: null };
 
 // même lecture de l'outil actif qu'Ember (v13+ : objet tool ; avant : nom)
 const activeTool = () => ui.controls?.tool?.name ?? ui.controls?.activeTool ?? null;
@@ -151,6 +151,7 @@ function draw() {
 
 function clear() {
   state.drawing = state.stroke = state.result = null;
+  state.dialOpen = false;
   state.graphics?.clear();
   syncPanel();
 }
@@ -203,7 +204,7 @@ const TYPE_ICONS = {
   terrain: "fa-solid fa-mountain"
 };
 
-/** Cadran affiché au moment de valider, là où le trait a été lâché : précision et type de mur s'y règlent. */
+/** Cadran ouvert par un clic sur l'aperçu, à l'endroit du clic : précision et type s'y règlent, « Appliquer » crée les murs. */
 function syncPanel() {
   if (!dial) {
     dial = createDial({
@@ -224,6 +225,10 @@ function syncPanel() {
       },
       getType: () => setting("brushWallType"),
       onType: (key) => game.settings.set(MODULE_ID, "brushWallType", key),
+      onApply: () => accept(),
+      onCancel: () => clear(),
+      applyLabel: t("PALISADE.Brush.Apply"),
+      cancelLabel: t("PALISADE.Brush.Cancel"),
       caption: t("PALISADE.Brush.Precision"),
       knobTitle: t("PALISADE.Brush.KnobHint"),
       hint: t("PALISADE.Brush.Keys")
@@ -231,14 +236,14 @@ function syncPanel() {
     document.body.append(dial.element);
   }
   // en style direct : l'attribut hidden ne l'emporte pas sur un display posé en ligne
-  const visible = isActive() && !!state.result;
+  const visible = isActive() && !!state.result && state.dialOpen;
   dial.element.style.display = visible ? "" : "none";
   if (visible && state.anchor) {
     // bouton central sous le curseur (centre du cadran à 130 px du coin), sans sortir de l'écran
     const [x, y] = state.anchor;
     const { offsetWidth: w, offsetHeight: h } = dial.element;
     const left = Math.min(Math.max(8, x - 130), window.innerWidth - w - 60);
-    const top = Math.min(Math.max(20, y - 130), window.innerHeight - h - 8);
+    const top = Math.min(Math.max(20, y - 130), window.innerHeight - h - 56); // 56 : boutons sous le cadran
     Object.assign(dial.element.style, { left: `${left}px`, top: `${top}px`, transform: "none" });
     state.anchor = null; // un recalcul de l'aperçu ne déplace pas le cadran
   }
@@ -268,6 +273,7 @@ function onPointerMove(event) {
     // un nouveau trait remplace l'aperçu non validé
     state.moved = true;
     state.result = null;
+    state.dialOpen = false;
     syncPanel();
   }
   const p = toWorld(event);
@@ -282,14 +288,17 @@ function onPointerUp(event) {
   const stroke = state.drawing;
   state.drawing = null;
   if (!state.moved) {
-    // simple clic : valide l'aperçu en attente
-    if (state.result) accept();
+    // simple clic sur un aperçu en attente : ouvre (ou déplace) le cadran à cet endroit,
+    // les murs sont créés par son bouton « Appliquer »
+    if (state.result) {
+      state.dialOpen = true;
+      state.anchor = [event.clientX, event.clientY];
+      syncPanel();
+    }
     return;
   }
   if (stroke.length < 2) return clear();
   state.stroke = stroke;
-  // le cadran s'ouvrira sous le curseur, là où le trait a été lâché
-  state.anchor = [event.clientX, event.clientY];
   snap();
 }
 

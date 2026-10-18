@@ -51,7 +51,9 @@
       "Precision": "Precision",
       "Type": "Type",
       "KnobHint": "Precision: mouse wheel, drag up or down, or arrow keys",
-      "Keys": "Enter: create walls · Escape: cancel"
+      "Keys": "Enter: apply · Escape: cancel",
+      "Apply": "Apply",
+      "Cancel": "Cancel"
     },
     "WallTypes": {
       "normal": "Normal",
