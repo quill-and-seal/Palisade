@@ -18,6 +18,24 @@ const CONTEXT_PX = 40; // pixels d'image lus en plus du rayon : contexte des dé
 const CLICK_PX = 4;
 const WELD_PX = 8; // distance de soudure à l'écran
 
+/** Types de mur que le pinceau peut créer : propriétés du mur, sur le modèle des outils de Foundry. */
+export const WALL_TYPES = ["normal", "ethereal", "invisible", "terrain"];
+export function wallTypeData(type) {
+  const { NONE, LIMITED } = CONST.WALL_SENSE_TYPES;
+  switch (type) {
+    // traversable : cache la vue et la lumière, mais les personnages passent
+    case "ethereal":
+      return { move: CONST.WALL_MOVEMENT_TYPES.NONE, sound: NONE };
+    // bloque le passage, mais pas la vue, la lumière ni le son
+    case "invisible":
+      return { sight: NONE, light: NONE, sound: NONE };
+    case "terrain":
+      return { sight: LIMITED, light: LIMITED, sound: LIMITED };
+    default:
+      return {};
+  }
+}
+
 /**
  * Zone de l'image à lire pour un trait.
  * @param {number[][]} points   trait, en coordonnées monde
@@ -163,7 +181,8 @@ async function accept() {
   // soudure aux murs existants et au trait lui-même : pas de points doublés ni de murs superposés
   const walls = canvas.scene.walls.map((w) => ({ id: w.id, c: [...w.c] }));
   const segments = weldChain(pts, walls, WELD_PX / canvas.stage.scale.x);
-  if (segments.length) await canvas.scene.createEmbeddedDocuments("Wall", segments.map((c) => ({ c })));
+  const type = wallTypeData(setting("brushWallType"));
+  if (segments.length) await canvas.scene.createEmbeddedDocuments("Wall", segments.map((c) => ({ c, ...type })));
 }
 
 /* -------------------------------------------- */
@@ -185,7 +204,9 @@ function syncPanel() {
     panel.innerHTML =
       `<i class="fa-solid fa-paintbrush"></i><label for="palisade-brush-detail">${t("PALISADE.Brush.Precision")}</label>` +
       `<input id="palisade-brush-detail" type="range" min="1" max="10" step="0.5" style="width:140px">` +
-      `<output for="palisade-brush-detail" style="min-width:3.5em;text-align:right"></output>`;
+      `<output for="palisade-brush-detail" style="min-width:3.5em;text-align:right"></output>` +
+      `<label for="palisade-brush-type">${t("PALISADE.Brush.Type")}</label>` +
+      `<select id="palisade-brush-type">${WALL_TYPES.map((k) => `<option value="${k}">${t(`PALISADE.WallTypes.${k}`)}</option>`).join("")}</select>`;
     const input = panel.querySelector("input");
     const output = panel.querySelector("output");
     input.addEventListener("input", () => {
@@ -197,6 +218,8 @@ function syncPanel() {
         if (state.stroke && state.result && !state.busy) snap({ quiet: true });
       }, 150);
     });
+    const select = panel.querySelector("select");
+    select.addEventListener("change", () => game.settings.set(MODULE_ID, "brushWallType", select.value));
     document.body.append(panel);
   }
   // en style direct : l'attribut hidden ne l'emporte pas sur un display posé en ligne
@@ -206,6 +229,7 @@ function syncPanel() {
     const input = panel.querySelector("input");
     input.value = setting("brushDetail");
     panel.querySelector("output").value = `${input.value} px`;
+    panel.querySelector("select").value = setting("brushWallType");
   }
 }
 

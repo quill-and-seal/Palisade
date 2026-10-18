@@ -32,6 +32,10 @@
       "BrushDetail": {
         "Name": "Pinceau : précision (px à l'écran)",
         "Hint": "Écart maximal entre les murs créés et le contour suivi, mesuré à l'écran. Plus bas : plus de détails (et plus de murs). Propre à ce navigateur."
+      },
+      "BrushWallType": {
+        "Name": "Pinceau : type de mur",
+        "Hint": "Type des murs créés par le pinceau. Traversable : les personnages passent, mais la vue et la lumière sont bloquées. Invisible : bloque le passage, pas la vue. Se change aussi dans le panneau du pinceau. Propre à ce navigateur."
       }
     },
     "Keybindings": {
@@ -44,7 +48,14 @@
       "NoBackground": "Le pinceau lit l'image de fond de la scène, et cette scène n'en a pas.",
       "NoWall": "Pas de mur net à cet endroit : l'aperçu reprend ton trait tel quel. Entrée pour le créer quand même, Échap pour annuler.",
       "ReadError": "Le pinceau n'a pas pu lire l'image de fond ({message}). Si elle est hébergée sur un autre site, copie-la dans les données de Foundry.",
-      "Precision": "Précision"
+      "Precision": "Précision",
+      "Type": "Type"
+    },
+    "WallTypes": {
+      "normal": "Normal",
+      "ethereal": "Traversable (cache la vue)",
+      "invisible": "Invisible (bloque le passage)",
+      "terrain": "Terrain (vue limitée)"
     }
   }
 }

@@ -134,3 +134,12 @@ test("pinceau : un segment qui revient sur un segment du même trait n'est pas d
   const out = weldChain([[0, 0], [100, 0], [50, 1]], [], 6);
   assert.deepEqual(out, [[0, 0, 100, 0]]);
 });
+
+test("pinceau : propriétés des types de mur (traversable = les personnages passent)", async () => {
+  globalThis.CONST = { WALL_SENSE_TYPES: { NONE: 0, LIMITED: 10, NORMAL: 20 }, WALL_MOVEMENT_TYPES: { NONE: 0, NORMAL: 20 } };
+  const { wallTypeData } = await import("../scripts/brush-tool.js");
+  assert.deepEqual(wallTypeData("normal"), {});
+  assert.deepEqual(wallTypeData("ethereal"), { move: 0, sound: 0 });
+  assert.deepEqual(wallTypeData("invisible"), { sight: 0, light: 0, sound: 0 });
+  assert.deepEqual(wallTypeData("terrain"), { sight: 10, light: 10, sound: 10 });
+});

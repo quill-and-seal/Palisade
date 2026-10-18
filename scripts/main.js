@@ -12,7 +12,7 @@
 
 import { MODULE_ID, log } from "./constants.js";
 import { registerLinker, isEnabled } from "./linker.js";
-import { registerBrushTool, brushToolButton } from "./brush-tool.js";
+import { registerBrushTool, brushToolButton, WALL_TYPES } from "./brush-tool.js";
 import * as geometry from "./geometry.js";
 import { snapStroke } from "./brush.js";
 
@@ -67,6 +67,16 @@ function registerSettings() {
     type: Number,
     range: { min: 16, max: 120, step: 4 },
     default: 48
+  });
+
+  game.settings.register(MODULE_ID, "brushWallType", {
+    name: "PALISADE.Settings.BrushWallType.Name",
+    hint: "PALISADE.Settings.BrushWallType.Hint",
+    scope: "client",
+    config: true,
+    type: String,
+    choices: Object.fromEntries(WALL_TYPES.map((k) => [k, `PALISADE.WallTypes.${k}`])),
+    default: "normal"
   });
 
   game.settings.register(MODULE_ID, "brushDetail", {

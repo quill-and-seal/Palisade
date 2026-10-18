@@ -1,8 +1,15 @@
 # Changelog
 
-## 0.1.4
+## 0.1.6
+
+- Pinceau : choix du type de mur créé dans le panneau (normal, traversable, invisible, terrain). Traversable : les personnages passent, la vue et la lumière restent bloquées.
+
+## 0.1.5
 
 - Pinceau : les points du trait se soudent aux points et murs existants, et un trait qui repasse sur des murs ne les double plus (fini les murs superposés).
+
+## 0.1.4
+
 - Pinceau : panneau dans la vue pour régler la précision sans ouvrir les réglages ; l'aperçu en attente se recalcule aussitôt.
 
 ## 0.1.0

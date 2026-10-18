@@ -43,7 +43,14 @@ L'outil **pinceau** (icône pinceau, dans les outils des murs) pose les murs en 
 
 À la création, les points du trait se soudent aux points et aux murs déjà posés (8 px à l'écran), et les passages qui repassent sur un mur existant ne sont pas recréés : pas de murs superposés.
 
-Pendant que l'outil est actif, un petit panneau en haut de la vue règle la **précision** : bouger le curseur recalcule aussitôt l'aperçu en attente.
+Pendant que l'outil est actif, un petit panneau en haut de la vue règle la **précision** (bouger le curseur recalcule aussitôt l'aperçu en attente) et le **type de mur** créé :
+
+| Type | Personnages | Vue et lumière |
+|---|---|---|
+| Normal | Bloqués | Bloquées |
+| Traversable | Passent | Bloquées |
+| Invisible | Bloqués | Passent |
+| Terrain | Bloqués | Limitées |
 
 Le pinceau reconnaît seul les murs dessinés (traits sombres, murs de pierre) et les bords de matière, et cherche jusqu'à 48 px à l'écran autour du trait (réglable). Zoomer rend la recherche plus fine. Les murs créés s'accrochent aux murs voisins comme les autres.
 
@@ -59,6 +66,7 @@ Limites : le pinceau lit l'image de fond de la scène, pas les tuiles. Si les jo
 | Coupure en T | Activé | Un mur touché en son milieu est coupé en deux |
 | Ne jamais couper les portes | Activé | Une porte touchée en son milieu reste entière |
 | Pinceau : distance de recherche | 48 px | Jusqu'où le pinceau cherche un mur autour du trait, à l'écran. Propre à ce navigateur |
+| Pinceau : type de mur | Normal | Type des murs créés par le pinceau (aussi dans le panneau du pinceau). Propre à ce navigateur |
 | Pinceau : précision | 2 px | Écart maximal entre les murs créés et le contour suivi, à l'écran. Plus bas : plus de détails. Propre à ce navigateur |
 
 ## API

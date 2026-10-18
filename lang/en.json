@@ -32,6 +32,10 @@
       "BrushDetail": {
         "Name": "Brush: precision (screen px)",
         "Hint": "Largest gap between the created walls and the traced outline, measured on screen. Lower: more detail (and more walls). Per browser."
+      },
+      "BrushWallType": {
+        "Name": "Brush: wall type",
+        "Hint": "Type of the walls the brush creates. Passable: tokens walk through, but sight and light are blocked. Invisible: blocks movement, not sight. Also changed in the brush panel. Per browser."
       }
     },
     "Keybindings": {
@@ -44,7 +48,14 @@
       "NoBackground": "The brush reads the scene's background image, and this scene has none.",
       "NoWall": "No clear wall here: the preview keeps your stroke as drawn. Enter to create it anyway, Escape to cancel.",
       "ReadError": "The brush could not read the background image ({message}). If it is hosted on another site, copy it into Foundry's data.",
-      "Precision": "Precision"
+      "Precision": "Precision",
+      "Type": "Type"
+    },
+    "WallTypes": {
+      "normal": "Normal",
+      "ethereal": "Passable (blocks sight)",
+      "invisible": "Invisible (blocks movement)",
+      "terrain": "Terrain (limited sight)"
     }
   }
 }
