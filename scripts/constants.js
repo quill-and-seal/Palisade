@@ -6,3 +6,6 @@ export const setting = (key) => game.settings.get(MODULE_ID, key);
 
 /** Distance d'accroche en unités de scène : le réglage est en pixels à l'écran, comme le pinceau. */
 export const snapTolerance = () => setting("snapDistance") / (globalThis.canvas?.stage?.scale?.x || 1);
+
+/** Barreau caché d'un mur à motif (voir grille.js) : la liaison et le pinceau l'ignorent. */
+export const isBar = (doc) => !!doc?.flags?.[MODULE_ID]?.barOf;

@@ -6,7 +6,7 @@ Une palissade, ce sont des pieux plantés côte à côte et liés entre eux. Pal
 
 Un module de l'atelier [Quill & Seal](https://github.com/quill-and-seal).
 
-> **État : 0.1.** Accroche, coupure en T, jointures qui suivent, et pinceau qui colle les murs au dessin de la carte. La suite est dans [ROADMAP.md](ROADMAP.md).
+> **État : 2.0.** Accroche, coupure en T, jointures qui suivent, pinceau qui colle les murs au dessin de la carte, et murs à motif lumineux. La suite est dans [ROADMAP.md](ROADMAP.md).
 
 ## Installation
 
@@ -54,10 +54,28 @@ Le **cadran** s'ouvre à l'endroit où tu cliques pour valider, bouton central s
 | Traversable | Passent | Bloquées |
 | Invisible | Bloqués | Passent |
 | Terrain | Bloqués | Limitées |
+| Grille | Bloqués | Vue libre, lumière en bandes (motif barreaux) |
 
 Le pinceau reconnaît seul les murs dessinés (traits sombres, murs de pierre) et les bords de matière, et cherche jusqu'à 48 px à l'écran autour du trait (réglable). Zoomer rend la recherche plus fine. Les murs créés s'accrochent aux murs voisins comme les autres.
 
 Limites : le pinceau lit l'image de fond de la scène, pas les tuiles. Si les joints du sol (parquet, dallage) sont aussi marqués que les murs et plus proches du trait, il peut les suivre : dessine alors sur le mur lui-même. Le banc d'essai `tools/brush-lab.html` permet de tester le pinceau sur une carte hors de Foundry.
+
+## Murs à motif lumineux
+
+Un mur peut porter un **motif** : barreaux, croisillons ou grillage fin. Il bloque toujours le passage, mais la lumière passe entre ses barreaux et projette des **ombres en bandes** de l'autre côté, comme le soleil à travers une herse.
+
+![Lumière à travers les motifs](docs/grille-lumiere.png)
+
+- **Sur un mur existant** : ouvre sa fiche (double-clic), section **Palisade : motif lumineux**, choisis le motif et l'écartement (1 = motif d'origine, 2 = barreaux deux fois plus espacés).
+- **Au pinceau** : choisis le type **Grille** dans le cadran avant d'appliquer.
+
+Le mur reste un seul mur : tu le déplaces, le modifies et le supprimes d'un bloc. Ses barreaux sont de petits murs cachés qui ne bloquent que la lumière ; ils sont recréés à chaque changement et supprimés avec lui. La vue n'est pas découpée : on voit à travers la grille. Les tailles suivent la case de la scène (barreaux tous les quarts de case).
+
+| Motif | Écart | Épaisseur |
+|---|---|---|
+| Barreaux, herse | ¼ de case | 7 % de case |
+| Croisillons | ½ case | 14 % de case |
+| Grillage fin | 1/10 de case | 3,5 % de case (2 px minimum) |
 
 ## Réglages
 
@@ -87,7 +105,7 @@ Les modifications faites par Palisade portent l'option `{ palisade: true }`, pou
 
 ## Développement
 
-La géométrie (`scripts/geometry.js`) et le pinceau (`scripts/brush.js`) ne dépendent pas de Foundry et se testent avec Node :
+La géométrie (`scripts/geometry.js`), le pinceau (`scripts/brush.js`) et les motifs (`scripts/pattern.js`) ne dépendent pas de Foundry et se testent avec Node :
 
 ```
 node --test tests/*.test.mjs

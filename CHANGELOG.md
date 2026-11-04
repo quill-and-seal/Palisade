@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.0
+
+Murs à motif lumineux.
+
+- Un mur peut porter un motif (barreaux, croisillons, grillage fin) : il bloque le passage, la vue le traverse, et la lumière passe entre ses barreaux en projetant des ombres en bandes.
+- Réglage dans la fiche du mur (motif et écartement) et type « Grille » dans le cadran du pinceau.
+- Le mur reste un seul mur à manipuler ; ses barreaux, cachés, suivent ses déplacements et ses changements et disparaissent avec lui. La liaison et le pinceau les ignorent.
+
 ## 0.1.9
 
 - Pinceau : relâcher le trait affiche l'aperçu ; le clic de validation ouvre le cadran à l'endroit cliqué (bouton central sous le curseur), et les murs sont créés par son bouton « Appliquer » (« Annuler » les abandonne ; Entrée et Échap au clavier).

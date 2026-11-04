@@ -59,13 +59,28 @@
       "normal": "Normal",
       "ethereal": "Traversable",
       "invisible": "Invisible",
-      "terrain": "Terrain"
+      "terrain": "Terrain",
+      "grille": "Grille"
     },
     "WallTypesHint": {
       "normal": "bloque tout",
       "ethereal": "on passe",
       "invisible": "on voit",
-      "terrain": "vue limitée"
+      "terrain": "vue limitée",
+      "grille": "lumière en bandes"
+    },
+    "Pattern": {
+      "Legend": "Palisade : motif lumineux",
+      "Label": "Motif",
+      "None": "Aucun (mur plein)",
+      "Hint": "La lumière passe entre les barreaux et dessine des ombres en bandes. Le mur laisse passer la lumière : ce sont ses barreaux, invisibles, qui la découpent.",
+      "Types": {
+        "bars": "Barreaux, herse",
+        "lattice": "Croisillons",
+        "mesh": "Grillage fin"
+      },
+      "Density": "Écartement",
+      "DensityHint": "1 : motif d'origine. 2 : barreaux deux fois plus espacés. 0,5 : deux fois plus serrés."
     }
   }
 }

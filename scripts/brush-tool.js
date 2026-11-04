@@ -9,7 +9,7 @@
  * (déplacer la vue) et la molette (zoom) restent à Foundry.
  */
 
-import { MODULE_ID, setting, snapTolerance, t } from "./constants.js";
+import { MODULE_ID, isBar, setting, snapTolerance, t } from "./constants.js";
 import { snapStroke } from "./brush.js";
 import { weldChain } from "./geometry.js";
 import { createDial } from "./brush-dial.js";
@@ -19,7 +19,7 @@ const CONTEXT_PX = 40; // pixels d'image lus en plus du rayon : contexte des dé
 const CLICK_PX = 4;
 
 /** Types de mur que le pinceau peut créer : propriétés du mur, sur le modèle des outils de Foundry. */
-export const WALL_TYPES = ["normal", "ethereal", "invisible", "terrain"];
+export const WALL_TYPES = ["normal", "ethereal", "invisible", "terrain", "grille"];
 export function wallTypeData(type) {
   const { NONE, LIMITED } = CONST.WALL_SENSE_TYPES;
   switch (type) {
@@ -31,6 +31,9 @@ export function wallTypeData(type) {
       return { sight: NONE, light: NONE, sound: NONE };
     case "terrain":
       return { sight: LIMITED, light: LIMITED, sound: LIMITED };
+    // grille : on voit au travers, la lumière passe entre les barreaux (motif lumineux, voir grille.js)
+    case "grille":
+      return { sight: NONE, light: NONE, sound: NONE, flags: { palisade: { pattern: "bars" } } };
     default:
       return {};
   }
@@ -182,7 +185,7 @@ async function accept() {
   clear();
   if (!pts || pts.length < 2) return;
   // soudure aux murs existants et au trait lui-même : pas de points doublés ni de murs superposés
-  const walls = canvas.scene.walls.map((w) => ({ id: w.id, c: [...w.c] }));
+  const walls = canvas.scene.walls.filter((w) => !isBar(w)).map((w) => ({ id: w.id, c: [...w.c] }));
   const segments = weldChain(pts, walls, snapTolerance());
   const type = wallTypeData(setting("brushWallType"));
   if (segments.length) {
@@ -201,7 +204,8 @@ const TYPE_ICONS = {
   normal: "fa-solid fa-dungeon",
   ethereal: "fa-solid fa-person-walking",
   invisible: "fa-solid fa-eye",
-  terrain: "fa-solid fa-mountain"
+  terrain: "fa-solid fa-mountain",
+  grille: "fa-solid fa-grip-lines-vertical"
 };
 
 /** Cadran ouvert par un clic sur l'aperçu, à l'endroit du clic : précision et type s'y règlent, « Appliquer » crée les murs. */

@@ -11,7 +11,7 @@
  * portent l'option { palisade: true } pour ne pas se déclencher elles-mêmes.
  */
 
-import { MODULE_ID, setting, snapTolerance } from "./constants.js";
+import { MODULE_ID, isBar, setting, snapTolerance } from "./constants.js";
 import { snapCoords, planJointMoves, planSplits, endpoints, samePoint } from "./geometry.js";
 
 /** Anciennes coordonnées des murs en cours de mise à jour, par uuid. */
@@ -24,12 +24,13 @@ export function isEnabled() {
   return game.user.isGM && setting("enabled");
 }
 
-function shouldHandle(options, userId) {
-  return !options?.[MODULE_ID] && userId === game.user.id && isEnabled();
+function shouldHandle(options, userId, doc) {
+  return !options?.[MODULE_ID] && userId === game.user.id && !isBar(doc) && isEnabled();
 }
 
+// les barreaux des murs à motif ne comptent pas : rien ne s'y accroche ni ne les suit
 function wallsOf(scene) {
-  return scene.walls.map((w) => ({ id: w.id, c: [...w.c], door: w.door > 0 }));
+  return scene.walls.filter((w) => !isBar(w)).map((w) => ({ id: w.id, c: [...w.c], door: w.door > 0 }));
 }
 
 function queueFor(scene) {
@@ -42,7 +43,7 @@ function queueFor(scene) {
 /* -------------------------------------------- */
 
 function onPreCreateWall(doc, data, options, userId) {
-  if (!shouldHandle(options, userId) || !doc.parent) return;
+  if (!shouldHandle(options, userId, doc) || !doc.parent) return;
   // les murs du pinceau arrivent déjà soudés (weldChain) : ne pas les ré-accrocher un par un
   if (options?.palisadeBrush) return;
   const tolerance = snapTolerance();
@@ -53,7 +54,7 @@ function onPreCreateWall(doc, data, options, userId) {
 function onPreUpdateWall(doc, changes, options, userId) {
   if (!("c" in changes) || !doc.parent) return;
   previousCoords.set(doc.uuid, [...doc.c]);
-  if (!shouldHandle(options, userId)) return;
+  if (!shouldHandle(options, userId, doc)) return;
 
   // N'accroche que les extrémités qui bougent : l'autre reste où elle est.
   const [oldA, oldB] = endpoints(doc.c);
@@ -68,7 +69,7 @@ function onPreUpdateWall(doc, changes, options, userId) {
 /* -------------------------------------------- */
 
 function onCreateWall(doc, options, userId) {
-  if (!shouldHandle(options, userId) || !doc.parent) return;
+  if (!shouldHandle(options, userId, doc) || !doc.parent) return;
   queueFor(doc.parent).created.add(doc.id);
   scheduleFlush();
 }
@@ -76,7 +77,7 @@ function onCreateWall(doc, options, userId) {
 function onUpdateWall(doc, changes, options, userId) {
   const from = previousCoords.get(doc.uuid);
   previousCoords.delete(doc.uuid);
-  if (!("c" in changes) || !from || !shouldHandle(options, userId) || !doc.parent) return;
+  if (!("c" in changes) || !from || !shouldHandle(options, userId, doc) || !doc.parent) return;
   queueFor(doc.parent).moves.push({ id: doc.id, from, to: [...doc.c] });
   scheduleFlush();
 }

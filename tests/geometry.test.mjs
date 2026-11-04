@@ -143,6 +143,7 @@ test("pinceau : propriétés des types de mur (traversable = les personnages pas
   assert.deepEqual(wallTypeData("ethereal"), { move: 0, sound: 0 });
   assert.deepEqual(wallTypeData("invisible"), { sight: 0, light: 0, sound: 0 });
   assert.deepEqual(wallTypeData("terrain"), { sight: 10, light: 10, sound: 10 });
+  assert.deepEqual(wallTypeData("grille"), { sight: 0, light: 0, sound: 0, flags: { palisade: { pattern: "bars" } } });
 });
 
 test("accroche d'un mur plus court que la distance d'accroche : il reste soudé par une extrémité", () => {

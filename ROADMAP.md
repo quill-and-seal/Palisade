@@ -18,3 +18,7 @@ Un outil pinceau dans les outils des murs : on dessine à main levée près d'un
 - [x] Intégration dans Foundry : outil, lecture du fond de scène, aperçu, création des murs
 - [ ] Lire aussi les tuiles (cartes posées en tuiles plutôt qu'en fond de scène)
 - [ ] Choisir le type de mur créé (normal, terrain, invisible…)
+
+## 3.0 — Matières
+
+Un mur a une matière (pierre, bois, toile, métal…) qui change son comportement : par exemple étouffer plus ou moins le son avec Vesper. À préciser.

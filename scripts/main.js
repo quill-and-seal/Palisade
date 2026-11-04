@@ -10,8 +10,9 @@
  *   geometry               : fonctions de géométrie (voir geometry.js)
  */
 
-import { MODULE_ID, log } from "./constants.js";
+import { MODULE_ID, isBar, log } from "./constants.js";
 import { registerLinker, isEnabled } from "./linker.js";
+import { registerGrille } from "./grille.js";
 import { registerBrushTool, brushToolButton, WALL_TYPES } from "./brush-tool.js";
 import * as geometry from "./geometry.js";
 import { snapStroke } from "./brush.js";
@@ -104,7 +105,7 @@ function registerSettings() {
 /* -------------------------------------------- */
 
 function wallList(scene) {
-  return scene.walls.map((w) => ({ id: w.id, c: [...w.c], door: w.door > 0 }));
+  return scene.walls.filter((w) => !isBar(w)).map((w) => ({ id: w.id, c: [...w.c], door: w.door > 0 }));
 }
 
 function connected(wall) {
@@ -127,6 +128,7 @@ function selectConnected(wall) {
 Hooks.once("init", () => {
   registerSettings();
   registerLinker();
+  registerGrille();
   registerBrushTool();
 
   game.keybindings.register(MODULE_ID, "selectConnected", {

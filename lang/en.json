@@ -59,13 +59,28 @@
       "normal": "Normal",
       "ethereal": "Passable",
       "invisible": "Invisible",
-      "terrain": "Terrain"
+      "terrain": "Terrain",
+      "grille": "Grate"
     },
     "WallTypesHint": {
       "normal": "blocks all",
       "ethereal": "walk through",
       "invisible": "see through",
-      "terrain": "limited sight"
+      "terrain": "limited sight",
+      "grille": "striped light"
+    },
+    "Pattern": {
+      "Legend": "Palisade: light pattern",
+      "Label": "Pattern",
+      "None": "None (solid wall)",
+      "Hint": "Light passes between the bars and casts striped shadows. The wall lets light through: its hidden bars cut it.",
+      "Types": {
+        "bars": "Bars, portcullis",
+        "lattice": "Lattice",
+        "mesh": "Fine mesh"
+      },
+      "Density": "Spacing",
+      "DensityHint": "1: original pattern. 2: bars twice as far apart. 0.5: twice as tight."
     }
   }
 }
