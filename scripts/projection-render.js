@@ -158,11 +158,17 @@ const HATCH = 0.85;
  * qui en a une. Le MJ sans token sélectionné voit tout, sans hachures.
  */
 export function pickEye(sources, controlledIds) {
-  const live = sources.filter((s) => s.active !== false && s.shape?.points?.length >= 6);
+  const live = sources.filter((s) => s.active !== false && sightPolygon(s)?.points?.length >= 6);
   const mine = live.find((s) => controlledIds.includes(String(s.sourceId ?? "").split(".")[1]));
   // shortcut: plusieurs tokens voyants et aucun sélectionné : pas de hachures (il faudrait combiner les regards)
   return mine ?? (live.length === 1 ? live[0] : null);
 }
+
+/**
+ * Ligne de vue complète d'un token. Sa forme (shape) s'arrête à son rayon de vision, mais un PJ
+ * voit aussi les zones éclairées au-delà : les hachures doivent couvrir toute la ligne de vue.
+ */
+export const sightPolygon = (source) => (source.los?.points?.length >= 6 ? source.los : source.shape);
 
 /** Distance maximale entre un point et les sommets d'un polygone [x0, y0, x1, y1…]. */
 const reach = (x, y, points) => {
@@ -256,13 +262,14 @@ function updateEye() {
   const segments = sceneSegments();
   const visions = canvas.effects?.visionSources;
   const eye = segments.length && visions ? pickEye([...(visions.values?.() ?? visions)], (canvas.tokens?.controlled ?? []).map((t) => t.id)) : null;
-  const key = eye ? `${wallsVersion}|${eye.sourceId}:${Math.round(eye.data.x)},${Math.round(eye.data.y)},${eye.shape.points.length},${eye.shape.points[0]},${eye.shape.points[1]}` : "";
+  const poly = eye ? sightPolygon(eye).points : null;
+  const key = eye ? `${wallsVersion}|${eye.sourceId}:${Math.round(eye.data.x)},${Math.round(eye.data.y)},${poly.length},${poly[0]},${poly[1]}` : "";
   if (key === lastEyeKey) return;
   lastEyeKey = key;
   clearChildren(eyeContainer);
   status.eye = null;
   if (!eye) return;
-  const points = [...eye.shape.points];
+  const points = [...poly];
   const { x, y } = eye.data;
   const near = segmentsNear(segments, x, y, reach(x, y, points));
   if (!near.length) return;

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.3
+
+- Vue hachurée : les hachures couvrent toute la ligne de vue du PJ ; elles s'arrêtaient à son rayon de vision, alors qu'il voit aussi les zones éclairées au-delà.
+
 ## 2.2.2
 
 - Vue à travers les grilles : on voit à travers, mais les barreaux hachurent la vue du PJ, depuis ses yeux (à hauteur d'yeux selon la taille du token). Ce qu'il voit de l'autre côté, tokens compris, apparaît derrière les barreaux.

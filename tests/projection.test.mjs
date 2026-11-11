@@ -115,3 +115,12 @@ test("vue hachurée : les yeux du token contrôlé, sinon du seul token voyant",
   assert.equal(pickEye([], []), null, "MJ sans vision : pas de hachures");
   assert.equal(pickEye([{ ...a, active: false }], []), null);
 });
+
+test("vue hachurée : toute la ligne de vue, pas seulement le rayon de vision", async () => {
+  const { sightPolygon, pickEye } = await import("../scripts/projection-render.js");
+  const short = { points: [0, 0, 10, 0, 10, 10, 0, 10] };
+  const full = { points: [0, 0, 900, 0, 900, 900, 0, 900] };
+  assert.equal(sightPolygon({ shape: short, los: full }), full, "ligne de vue complète d'abord");
+  assert.equal(sightPolygon({ shape: short }), short, "sinon la forme");
+  assert.ok(pickEye([{ sourceId: "Token.A", active: true, los: full }], []), "un token sans forme mais avec ligne de vue compte");
+});
