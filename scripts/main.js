@@ -13,7 +13,7 @@
 import { MODULE_ID, isBar, log } from "./constants.js";
 import { registerLinker, isEnabled } from "./linker.js";
 import { registerGrille, schedule } from "./grille.js";
-import { registerProjection, invalidateProjection } from "./projection-render.js";
+import { registerProjection, invalidateProjection, projectionStatus } from "./projection-render.js";
 import { registerPatternDial } from "./pattern-dial.js";
 import { registerBrushTool, brushToolButton, WALL_TYPES } from "./brush-tool.js";
 import * as geometry from "./geometry.js";
@@ -170,6 +170,7 @@ Hooks.once("init", () => {
     connected,
     selectConnected,
     snapStroke,
+    projectionStatus,
     geometry
   };
 });

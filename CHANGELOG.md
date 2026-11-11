@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.2.1
+
+- Corrigé : aucune ombre de grille ne s'affichait en Foundry v14. Les sources de lumière n'y sont plus reliées directement à leur lumière ou à leur token ; Palisade les retrouve maintenant par leur identifiant.
+- Diagnostic : `game.modules.get("palisade").api.projectionStatus()` indique les grilles, lumières et ombres en cours de rendu, et les erreurs éventuelles.
+
 ## 2.2.0
 
 Ombre des grilles projetée au sol.

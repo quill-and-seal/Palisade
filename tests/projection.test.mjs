@@ -86,3 +86,19 @@ test("moyenne exacte des barreaux et hauteur de main d'un porteur", () => {
   assert.ok(carrierHeight(0.5) < carrierHeight(1) && carrierHeight(4) > carrierHeight(3));
   assert.equal(crossing([0, 0], [10, 0], [5, -1], [5, 1]).t, 0.5);
 });
+
+test("source de lumière v14 sans objet : retrouvée par son identifiant, lumière générale écartée", async () => {
+  globalThis.game = { settings: { get: () => "projected" } };
+  const { sourceDocument, isGlobalSource } = await import("../scripts/projection-render.js");
+  const light = { id: "L1", documentName: "AmbientLight" };
+  const token = { id: "T1", documentName: "Token" };
+  const scene = { lights: new Map([["L1", light]]), tokens: new Map([["T1", token]]) };
+  class PointLightSource {}
+  class GlobalLightSource {}
+  const src = Object.assign(new PointLightSource(), { sourceId: "AmbientLight.L1", data: { radius: 450 } });
+  assert.equal(sourceDocument(src, scene), light);
+  assert.equal(sourceDocument(Object.assign(new PointLightSource(), { sourceId: "Token.T1", data: { radius: 30 } }), scene), token);
+  assert.equal(sourceDocument(Object.assign(new PointLightSource(), { object: { document: light } }), scene), light, "objet direct (v12-v13)");
+  assert.equal(isGlobalSource(src), false);
+  assert.equal(isGlobalSource(Object.assign(new GlobalLightSource(), { data: {} })), true);
+});

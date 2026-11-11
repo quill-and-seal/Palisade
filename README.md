@@ -120,6 +120,7 @@ palisade.enabled;                 // la liaison est-elle active pour ce client
 palisade.connected(wall);         // Set des ids des murs reliés à ce mur
 palisade.selectConnected(wall);   // les sélectionne sur le canevas
 palisade.snapStroke(stroke, image, options); // colle un trait sur les murs d'une image
+palisade.projectionStatus();      // ombre projetée : grilles, lumières, ombres dessinées, erreurs
 palisade.geometry;                // fonctions de géométrie (accroche, coupure, jointures)
 ```
 

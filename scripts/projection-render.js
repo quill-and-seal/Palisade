@@ -147,6 +147,10 @@ let lastKey = "";
 let wallsVersion = 0;
 let segmentsCache = null;
 let tick = null;
+let status = { segments: 0, lights: 0, meshes: 0, errors: [] };
+
+/** État du rendu projeté, pour le diagnostic (game.modules.get("palisade").api.projectionStatus()). */
+export const projectionStatus = () => ({ ...status, render: setting("grilleRender"), container: !!container, lastSegments: segmentsCache?.length ?? null });
 
 /** À appeler quand les murs à motif ou les réglages changent. */
 export function invalidateProjection() {
@@ -169,10 +173,29 @@ function sceneSegments() {
   return segmentsCache;
 }
 
+/**
+ * Document d'une source de lumière (lumière posée ou token). En v14, la source n'est plus
+ * toujours reliée à son objet : on la retrouve alors par son identifiant (« AmbientLight.<id> »,
+ * « Token.<id> »).
+ */
+export function sourceDocument(source, scene) {
+  const direct = source.object?.document ?? source.document;
+  if (direct) return direct;
+  const [kind, id] = String(source.sourceId ?? "").split(".");
+  if (!id) return null;
+  if (kind === "AmbientLight") return scene?.lights?.get(id) ?? null;
+  if (kind === "Token") return scene?.tokens?.get(id) ?? null;
+  return null;
+}
+
+/** La lumière générale de la scène n'a pas de position : elle ne projette pas d'ombre de grille. */
+export const isGlobalSource = (source) =>
+  /Global/.test(source.constructor?.name ?? "") || source.sourceId === "globalLight" || source.data?.radius == null;
+
 /** Hauteur et flamme d'une source de lumière (token porteur ou lumière posée), en unités de scène. */
 function lightGeometry(source) {
   const grid = canvas.grid.size;
-  const doc = source.object?.document;
+  const doc = sourceDocument(source, canvas.scene);
   const flags = doc?.flags?.[MODULE_ID] ?? {};
   const isToken = doc?.documentName === "Token";
   const height = isToken ? carrierHeight(doc.width) : Number.isFinite(+flags.height) ? +flags.height : LIGHT_DEFAULTS.height;
@@ -184,7 +207,7 @@ function lightSources() {
   const all = canvas.effects?.lightSources;
   if (!all) return [];
   return [...(all.values?.() ?? all)].filter(
-    (s) => s.active !== false && s.object && s.shape?.points?.length >= 6 && (s.data?.radius ?? 0) > 0
+    (s) => s.active !== false && !isGlobalSource(s) && s.shape?.points?.length >= 6 && (s.data?.radius ?? 0) > 0
   );
 }
 
@@ -201,10 +224,11 @@ function update() {
   // n'est recalculé que si une lumière, un mur à motif ou l'obscurité change
   const key =
     `${wallsVersion}|${darkness.toFixed(2)}|` +
-    sources.map((s) => `${s.object.id}:${Math.round(s.data.x)},${Math.round(s.data.y)},${s.data.radius},${s.shape.points.length},${s.shape.points[0]},${s.shape.points[1]}`).join(";");
+    sources.map((s, i) => `${s.sourceId ?? i}:${Math.round(s.data.x)},${Math.round(s.data.y)},${s.data.radius},${s.shape.points.length},${s.shape.points[0]},${s.shape.points[1]}`).join(";");
   if (key === lastKey) return;
   lastKey = key;
   clearMeshes();
+  status = { segments: segments.length, lights: sources.length, meshes: 0, errors: [] };
   // de jour, la lumière générale noie en partie l'ombre d'une lampe
   const strength = 0.35 + 0.65 * Math.min(1, Math.max(0, darkness));
   for (const source of sources) {
@@ -227,7 +251,9 @@ function update() {
           segments: near
         })
       );
+      status.meshes++;
     } catch (err) {
+      status.errors.push(String(err?.message ?? err));
       console.error("Palisade | ombre de grille", err);
     }
   }
