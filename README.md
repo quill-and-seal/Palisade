@@ -98,7 +98,7 @@ Par défaut, l'ombre d'une grille est **projetée au sol** comme en vrai. Une lu
 
 ### Vue à travers une grille
 
-On **voit à travers** une grille, mais ses barreaux **hachurent la vue** du PJ : tout ce qu'il voit de l'autre côté, tokens compris, apparaît derrière les barreaux. Le calcul est le même que pour l'ombre, mais depuis ses yeux (à hauteur d'yeux selon la taille du token) et sans flou. Les hachures suivent le token sélectionné (ou le seul token qui voit) ; le MJ sans token sélectionné voit tout, sans hachures.
+On **voit à travers** une grille, mais ses barreaux, en **noir complet**, **hachurent la vue** du PJ : tout ce qu'il voit de l'autre côté, tokens compris, apparaît derrière les barreaux. Le calcul est le même que pour l'ombre, mais depuis ses yeux (à hauteur d'yeux selon la taille du token) et sans flou. Les hachures suivent le token sélectionné (ou le seul token qui voit) ; le MJ sans token sélectionné voit tout, sans hachures.
 
 Poser un motif rend le mur transparent au regard, le retirer le rend opaque à nouveau. Les grilles posées avant cette version sont rendues transparentes au chargement de la scène.
 
@@ -113,6 +113,7 @@ L'ombre suit la force de la lumière : pleine dans son rayon vif, nulle au bord 
 | Jointures qui suivent | Activé | Les murs voisins suivent un point déplacé |
 | Coupure en T | Activé | Un mur touché en son milieu est coupé en deux |
 | Ne jamais couper les portes | Activé | Une porte touchée en son milieu reste entière |
+| Intensité de l'ombre des grilles | 60 % | Force de l'ombre projetée la nuit : une ombre de feu n'est pas du noir. Les barreaux devant les yeux restent en noir complet |
 | Rendu des grilles | Projeté | Projeté : ombre peinte au sol (quadrillage, pénombre). Rayons : petits murs cachés (rendu de la 2.1) |
 | Pinceau : distance de recherche | 48 px | Jusqu'où le pinceau cherche un mur autour du trait, à l'écran. Propre à ce navigateur |
 | Pinceau : type de mur | Normal | Type des murs créés par le pinceau (aussi dans le cadran du pinceau). Propre à ce navigateur |

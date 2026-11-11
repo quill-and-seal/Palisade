@@ -155,8 +155,8 @@ let container = null;
 let eyeContainer = null;
 let lastEyeKey = "";
 
-/** Opacité des barreaux sur la vue : on devine encore un peu ce qui est derrière. */
-const HATCH = 0.85;
+/** Barreaux devant les yeux : ils cachent entièrement ce qui est derrière eux (noir complet). */
+const HATCH = 1;
 
 /**
  * Yeux à utiliser pour la vue hachurée : le token contrôlé s'il a une vision, sinon le seul token
@@ -305,7 +305,9 @@ function updateLights() {
   clearMeshes();
   status = { ...status, segments: segments.length, lights: sources.length, meshes: 0, errors: [] };
   // de jour, la lumière générale noie en partie l'ombre d'une lampe
-  const strength = 0.35 + 0.65 * Math.min(1, Math.max(0, darkness));
+  // Une ombre de feu n'est pas du noir : la lumière ambiante l'éclaire encore. Sa force maximale
+  // est réglable (60 % par défaut), et de jour la lumière générale l'atténue encore.
+  const strength = setting("grilleShadow") * (0.35 + 0.65 * Math.min(1, Math.max(0, darkness)));
   for (const source of sources) {
     const { x, y } = source.data;
     const radius = source.data.radius;

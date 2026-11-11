@@ -92,6 +92,17 @@ function registerSettings() {
     default: 2
   });
 
+  game.settings.register(MODULE_ID, "grilleShadow", {
+    name: "PALISADE.Settings.GrilleShadow.Name",
+    hint: "PALISADE.Settings.GrilleShadow.Hint",
+    scope: "world",
+    config: true,
+    type: Number,
+    range: { min: 0.2, max: 1, step: 0.05 },
+    default: 0.6,
+    onChange: () => invalidateProjection()
+  });
+
   game.settings.register(MODULE_ID, "grilleRender", {
     name: "PALISADE.Settings.GrilleRender.Name",
     hint: "PALISADE.Settings.GrilleRender.Hint",

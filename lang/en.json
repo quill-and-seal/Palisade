@@ -42,6 +42,10 @@
         "Hint": "Projected: the grate's shadow is painted on the floor from the light and grate heights (grid pattern, penumbra). Rays: small hidden walls that cut light into rays (2.1 rendering, lighter).",
         "Projected": "Projected (grid)",
         "Rays": "Rays (hidden walls)"
+      },
+      "GrilleShadow": {
+        "Name": "Grate shadow strength",
+        "Hint": "Strength of a grate's projected shadow at night. A firelight shadow is not black: the room still lights it a little. 1: pitch black. Bars in front of a PC's eyes stay pitch black."
       }
     },
     "Keybindings": {

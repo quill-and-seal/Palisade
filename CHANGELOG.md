@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.5
+
+- Ombre et vue bien distinctes : l'ombre projetée par une grille n'est plus du noir complet (une ombre de feu laisse passer la lumière ambiante), réglable avec « Intensité de l'ombre des grilles » (60 % par défaut) ; les barreaux devant les yeux d'un PJ sont en noir complet.
+
 ## 2.2.4
 
 - Vue hachurée : toute la zone vue par le PJ devenait noire. Le calque d'interface de Foundry est dessiné à part, sur un fond transparent, et l'assombrissement par multiplication y donnait du noir. Les barreaux sont maintenant peints en noir semi-transparent, quel que soit le calque.

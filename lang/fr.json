@@ -42,6 +42,10 @@
         "Hint": "Projeté : l'ombre de la grille est peinte au sol selon la hauteur de la lumière et de la grille (quadrillage, pénombre). Rayons : petits murs cachés qui découpent la lumière en rayons (rendu de la 2.1, plus léger).",
         "Projected": "Projeté (quadrillage)",
         "Rays": "Rayons (murs cachés)"
+      },
+      "GrilleShadow": {
+        "Name": "Intensité de l'ombre des grilles",
+        "Hint": "Force de l'ombre projetée par une grille, la nuit. Une ombre de feu n'est pas du noir : la pièce l'éclaire encore un peu. 1 : noir complet. Les barreaux devant les yeux d'un PJ restent, eux, en noir complet."
       }
     },
     "Keybindings": {
