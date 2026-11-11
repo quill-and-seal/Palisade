@@ -94,11 +94,27 @@
       </div>
     </section>
     <section>
+      <h2>Lumière</h2>
+      <div class="seg three" role="group" aria-label="Porteur de la lumière">
+        <button data-carrier="0" aria-pressed="true">Posée</button>
+        <button data-carrier="0.75" aria-pressed="false">Petit</button>
+        <button data-carrier="1.2" aria-pressed="false">Moyen</button>
+        <button data-carrier="2.5" aria-pressed="false">Grand</button>
+        <button data-carrier="4" aria-pressed="false">Très grand</button>
+        <button data-carrier="5.5" aria-pressed="false">Gigantesque</button>
+      </div>
+      <div class="slider">
+        <label for="src">Taille de la flamme</label><output id="o-src"></output>
+        <input id="src" type="range" min="0" max="0.6" step="0.01" value="0.06">
+        <small>0 : point lumineux, ombres nettes. Bougie ≈ 0,02, torche ≈ 0,06, brasero ≈ 0,3, feu de camp ≈ 0,6. Plus la flamme est grande, plus les ombres s'adoucissent en s'éloignant de la grille.</small>
+      </div>
+    </section>
+    <section>
       <h2>Hauteurs</h2>
       <div class="slider">
         <label for="lh">Lampe</label><output id="o-lh"></output>
         <input id="lh" type="range" min="0.3" max="4" step="0.05" value="1.5">
-        <small>Plus elle est haute, plus les bandes s'éloignent de la grille.</small>
+        <small>Plus elle est haute, plus les bandes s'éloignent de la grille. Un porteur la place à hauteur de main (80 % de sa taille).</small>
       </div>
       <div class="slider">
         <label for="gb">Bas de la grille</label><output id="o-gb"></output>
@@ -116,6 +132,7 @@
       <ul>
         <li>Glisse la lampe (rond ambre) pour voir l'ombre se déformer.</li>
         <li>Glisse les extrémités de la grille (ronds blancs) pour la tourner ou l'allonger.</li>
+        <li>Choisis un porteur : la lampe monte à hauteur de sa main, et son token s'affiche autour.</li>
         <li>« Rayons (2.1) » montre le rendu actuel du module, pour comparer.</li>
       </ul>
       <p id="err" class="err" hidden>WebGL n'est pas disponible dans ce navigateur : le banc ne peut pas s'afficher.</p>
@@ -136,6 +153,7 @@
     light: [430, 300],
     grille: [[640, 180], [640, 460]],
     mode: "proj",
+    carrier: 0,
     pattern: "lattice"
   };
   // murs pleins : la pièce, avec une ouverture sur le mur de droite… non : la grille coupe la pièce en deux
@@ -160,6 +178,7 @@
     uniform vec4 G; uniform float spacing; uniform float thick; uniform float gb; uniform float gt;
     uniform int mode; uniform int pattern;
     uniform vec4 walls[6];
+    uniform float srcR;
     uniform float grid;
 
     // segment [a,b] contre segment [c,d] : renvoie (t sur ab, u sur cd), ou -1
@@ -183,11 +202,17 @@
       float grain = 0.93 + 0.07 * hash(floor(p / 3.0));
       return mix(vec3(0.16, 0.15, 0.14), vec3(0.46, 0.42, 0.37) * tone * grain, joint);
     }
-    // 1 si la coordonnée tombe dans un barreau (bords adoucis)
-    float bar(float x, float period, float frac, float aa){
-      float f = fract(x / period);
-      float d = min(f, 1.0 - f) * period;      // distance à l'axe du barreau le plus proche
-      return 1.0 - smoothstep(frac * period * 0.5 - aa, frac * period * 0.5 + aa, d);
+    // Part de [x - h, x + h] couverte par des barreaux de largeur frac·period centrés sur les
+    // multiples de period : moyenne exacte d'un créneau, qui donne la pénombre d'une flamme
+    // de demi-largeur h (h → 0 : ombre nette).
+    float cum(float x, float p, float w){
+      float y = x + w * 0.5;
+      return floor(y / p) * w + clamp(y - floor(y / p) * p, 0.0, w);
+    }
+    float bar(float x, float period, float frac, float h){
+      float w = frac * period;
+      h = max(h, 0.35);                        // anticrénelage minimal
+      return (cum(x + h, period, w) - cum(x - h, period, w)) / (2.0 * h);
     }
     void main(){
       vec3 base = floorColor(w);
@@ -200,7 +225,9 @@
       if (g.x > 0.0 && lit > 0.0){
         float glen = distance(G.xy, G.zw);
         float s = spacing * grid;
-        float aa = 0.6 + d * 0.004;              // les ombres lointaines sont plus floues
+        // pénombre : la flamme (rayon srcR) vue depuis le point du sol se projette sur la grille
+        // avec un rayon srcR·(1 − t) ; t → 1 au pied de la grille (net), t → 0 au loin (flou)
+        float aa = srcR * grid * (1.0 - g.x);
         float along = g.y * glen;
         float shade = bar(along - glen * 0.5, s, thick, aa);   // barreaux verticaux : centrés sur la grille
         if (mode == 0){
@@ -208,7 +235,7 @@
           float z = lh * (1.0 - g.x) * grid;
           float zb = gb * grid, zt = gt * grid;
           if (z < zb || z > zt) shade = 1.0;      // sous ou au-dessus de la grille : mur plein
-          else if (pattern != 0) shade = max(shade, bar(z - zb, s, thick, aa * 0.6));  // barreaux horizontaux
+          else if (pattern != 0) shade = 1.0 - (1.0 - shade) * (1.0 - bar(z - zb, s, thick, aa));  // barreaux horizontaux
         }
         lit *= 1.0 - shade;
       }
@@ -279,6 +306,7 @@
     gl.uniform1i(U("mode"), state.mode === "proj" ? 0 : 1);
     gl.uniform1i(U("pattern"), state.pattern === "bars" ? 0 : 1);
     gl.uniform1f(U("grid"), GRID);
+    gl.uniform1f(U("srcR"), +$("src").value);
     const walls = solidWalls().map((c) => [...shift([c[0], c[1]]), ...shift([c[2], c[3]])]);
     gl.uniform4fv(U("walls"), new Float32Array(walls.flat()));
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -306,6 +334,17 @@
       ctx.strokeStyle = "#121518";
       ctx.stroke();
     };
+    if (state.carrier > 0) {
+      const size = { 0.75: 0.5, 1.2: 1, 2.5: 2, 4: 3, 5.5: 4 }[state.carrier] ?? 1;   // largeur du token, en cases
+      const [x, y] = scr(state.light);
+      ctx.beginPath();
+      ctx.arc(x, y, (size * GRID * view.s) / 2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(232, 228, 218, 0.12)";
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "rgba(232, 228, 218, 0.7)";
+      ctx.stroke();
+    }
     dot(state.light, 10, "#ffb347");
     for (const p of state.grille) dot(p, 7, "#e8e4da");
   }
@@ -341,7 +380,7 @@
 
   // réglages
   const fmt = (v, unit) => `${(+v).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}${unit}`;
-  const units = { spacing: " case", thick: "", lh: " case", gb: " case", gt: " case" };
+  const units = { spacing: " case", thick: "", lh: " case", gb: " case", gt: " case", src: " case" };
   for (const id of Object.keys(units)) {
     const input = $(id);
     const show = () => {
@@ -357,6 +396,23 @@
       draw();
     };
   }
+  for (const btn of document.querySelectorAll("[data-carrier]")) {
+    btn.onclick = () => {
+      state.carrier = +btn.dataset.carrier;
+      for (const b of document.querySelectorAll("[data-carrier]")) b.setAttribute("aria-pressed", String(b === btn));
+      if (state.carrier > 0) {
+        $("lh").value = (state.carrier * 0.8).toFixed(2);   // torche tenue à hauteur de main
+        $("lh").dispatchEvent(new Event("input"));
+      }
+      draw();
+    };
+  }
+  $("lh").addEventListener("input", (e) => {
+    // régler la hauteur à la main repasse en lumière posée
+    if (!e.isTrusted) return;
+    state.carrier = 0;
+    for (const b of document.querySelectorAll("[data-carrier]")) b.setAttribute("aria-pressed", String(b.dataset.carrier === "0"));
+  });
   const setMode = (m) => {
     state.mode = m;
     $("mode-proj").setAttribute("aria-pressed", String(m === "proj"));
