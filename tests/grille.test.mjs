@@ -104,3 +104,25 @@ test("supprimer le mur supprime ses barreaux, un mur ordinaire n'en a pas", asyn
   await settle();
   assert.equal(bars(wall.id).length, 0);
 });
+
+test("cadran : clic droit sur un mur sélectionné → toute la sélection, sinon le mur seul, jamais les barreaux", async () => {
+  const { targetsFor } = await import("../scripts/pattern-dial.js");
+  const w = (id, flags = {}) => ({ document: { id, flags } });
+  const a = w("a"), b = w("b"), bar = w("x", { palisade: { barOf: "a" } }), c = w("c");
+  assert.deepEqual(targetsFor(a, [a, b, bar]).map((d) => d.id), ["a", "b"]);
+  assert.deepEqual(targetsFor(c, [a, b]).map((d) => d.id), ["c"]);
+  assert.deepEqual(targetsFor(bar, [bar]), []);
+});
+
+test("cadran : Appliquer pose le motif et l'écartement, « Aucun » le retire", async () => {
+  const { patternUpdate } = await import("../scripts/pattern-dial.js");
+  const [wall] = await scene.createEmbeddedDocuments("Wall", [{ c: [0, 1300, 200, 1300] }]);
+  await scene.updateEmbeddedDocuments("Wall", [patternUpdate(wall, "lattice", 2)]);
+  await settle();
+  assert.equal(wall.light, 0);
+  assert.equal(bars(wall.id).length, 2, "croisillons à écartement ×2 : tous les 100 px");
+  await scene.updateEmbeddedDocuments("Wall", [patternUpdate(wall, "none", 1)]);
+  await settle();
+  assert.equal(wall.light, 20);
+  assert.equal(bars(wall.id).length, 0);
+});

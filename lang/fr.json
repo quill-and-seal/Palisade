@@ -80,7 +80,9 @@
         "mesh": "Grillage fin"
       },
       "Density": "Écartement",
-      "DensityHint": "1 : motif d'origine. 2 : barreaux deux fois plus espacés. 0,5 : deux fois plus serrés."
+      "DensityHint": "1 : motif d'origine. 2 : barreaux deux fois plus espacés. 0,5 : deux fois plus serrés.",
+      "KnobHint": "Écartement des barreaux : molette, glisser vers le haut ou le bas, ou flèches du clavier",
+      "DialHint": "Entrée : appliquer · Échap : annuler"
     }
   }
 }

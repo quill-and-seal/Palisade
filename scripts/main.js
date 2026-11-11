@@ -13,6 +13,7 @@
 import { MODULE_ID, isBar, log } from "./constants.js";
 import { registerLinker, isEnabled } from "./linker.js";
 import { registerGrille } from "./grille.js";
+import { registerPatternDial } from "./pattern-dial.js";
 import { registerBrushTool, brushToolButton, WALL_TYPES } from "./brush-tool.js";
 import * as geometry from "./geometry.js";
 import { snapStroke } from "./brush.js";
@@ -129,6 +130,7 @@ Hooks.once("init", () => {
   registerSettings();
   registerLinker();
   registerGrille();
+  registerPatternDial();
   registerBrushTool();
 
   game.keybindings.register(MODULE_ID, "selectConnected", {

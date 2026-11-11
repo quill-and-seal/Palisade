@@ -66,7 +66,8 @@ Un mur peut porter un **motif** : barreaux, croisillons ou grillage fin. Il bloq
 
 ![Lumière à travers les motifs](docs/grille-lumiere.png)
 
-- **Sur un mur existant** : ouvre sa fiche (double-clic), section **Palisade : motif lumineux**, choisis le motif et l'écartement (1 = motif d'origine, 2 = barreaux deux fois plus espacés).
+- **Clic droit sur un mur** (calque des murs) : le cadran s'ouvre à l'endroit du clic. Les segments choisissent le motif (*Aucun* le retire), le bouton central l'écartement (×0,5 à ×4, à la molette), puis **Appliquer** (ou Entrée). Si le mur cliqué fait partie de la sélection, le motif s'applique à tous les murs sélectionnés. Glisser au bouton droit déplace toujours la vue.
+- **Dans la fiche du mur** (double-clic) : section **Palisade : motif lumineux**, mêmes réglages.
 - **Au pinceau** : choisis le type **Grille** dans le cadran avant d'appliquer.
 
 Le mur reste un seul mur : tu le déplaces, le modifies et le supprimes d'un bloc. Ses barreaux sont de petits murs cachés qui ne bloquent que la lumière ; ils sont recréés à chaque changement et supprimés avec lui. La vue n'est pas découpée : on voit à travers la grille. Les tailles suivent la case de la scène (barreaux tous les quarts de case).

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.1.0
+
+- Motifs lumineux : clic droit sur un mur pour ouvrir le cadran sur place. Segments pour le motif (aucun, barreaux, croisillons, grillage fin), bouton central pour l'écartement, Appliquer pour valider. S'applique à toute la sélection si le mur cliqué en fait partie.
+
 ## 2.0.0
 
 Murs à motif lumineux.

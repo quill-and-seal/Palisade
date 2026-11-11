@@ -1,5 +1,5 @@
 /**
- * Palisade — cadran du pinceau.
+ * Palisade — cadran (pinceau, motifs lumineux).
  *
  *   Centre        : bouton moleté, règle la précision (molette, glisser vers le haut ou le bas,
  *                   flèches du clavier). La valeur s'affiche dessus, l'index pointe la graduation.
@@ -16,17 +16,15 @@ const RING_IN = 66;
 const RING_OUT = 110;
 const LABEL_R = 128;
 const SCALE_R = 88;
-const DETAIL_MIN = 1;
-const DETAIL_MAX = 10;
-const DETAIL_STEP = 0.5;
-const SCALE_FROM = 110; // angle (degrés, 0 = droite, sens horaire) de la valeur 1, en bas à gauche
-const SCALE_SPAN = 140; // jusqu'à la valeur 10, en haut à gauche
+const SCALE_FROM = 110; // angle (degrés, 0 = droite, sens horaire) du minimum, en bas à gauche
+const SCALE_SPAN = 140; // jusqu'au maximum, en haut à gauche
+let dialCount = 0;
+
+/** Plage du bouton central par défaut : la précision du pinceau. */
+const PRECISION_RANGE = { min: 1, max: 10, step: 0.5, labels: [1, 5, 10], unit: " px" };
 
 const rad = (deg) => (deg * Math.PI) / 180;
 const polar = (r, deg) => [C + r * Math.cos(rad(deg)), C + r * Math.sin(rad(deg))];
-const clampDetail = (v) => Math.min(DETAIL_MAX, Math.max(DETAIL_MIN, Math.round(v / DETAIL_STEP) * DETAIL_STEP));
-const scaleAngle = (v) => SCALE_FROM + ((v - DETAIL_MIN) / (DETAIL_MAX - DETAIL_MIN)) * SCALE_SPAN;
-const fmt = (v) => `${String(v).replace(".", ",")} px`;
 
 /** Chemin SVG d'un secteur d'anneau entre deux angles. */
 function sector(r1, r2, a1, a2) {
@@ -59,16 +57,26 @@ function arc(r, a1, a2) {
  * @param {() => void} o.onCancel  bouton « Annuler »
  * @param {string} o.applyLabel
  * @param {string} o.cancelLabel
+ * @param {string} [o.id]      id de l'élément (un par cadran)
+ * @param {{min: number, max: number, step: number, labels: number[], unit: string}} [o.range]
+ *        plage du bouton central (par défaut : précision du pinceau, 1 à 10 px)
  * @returns {{element: HTMLElement, sync: () => void}}
  */
 export function createDial(o) {
+  const { min: MIN, max: MAX, step: STEP, labels: LABELS, unit: UNIT } = { ...PRECISION_RANGE, ...o.range };
+  const clampDetail = (v) => Math.min(MAX, Math.max(MIN, Math.round(v / STEP) * STEP));
+  const scaleAngle = (v) => SCALE_FROM + ((v - MIN) / (MAX - MIN)) * SCALE_SPAN;
+  const fmt = (v) => `${String(v).replace(".", ",")}${UNIT}`;
+  const hatchId = `pal-hatch-${++dialCount}`;
   const n = o.types.length;
   const span = 180 / n;
   const centers = o.types.map((_, i) => -90 + span * (i + 0.5));
   const svgNS = "http://www.w3.org/2000/svg";
 
   const root = document.createElement("div");
-  root.id = "palisade-dial";
+  root.id = o.id ?? "palisade-dial";
+  root.className = "palisade-dial";
+  root.style.setProperty("--pal-hatch", `url(#${hatchId})`);
 
   // --- face : disque, segments, graduation, liaison
   const face = document.createElement("div");
@@ -78,21 +86,21 @@ export function createDial(o) {
   svg.setAttribute("width", "260");
   svg.setAttribute("height", "260");
   let ticks = "";
-  for (let v = DETAIL_MIN; v <= DETAIL_MAX + 1e-9; v += DETAIL_STEP) {
+  for (let v = MIN; v <= MAX + 1e-9; v += STEP) {
     const a = scaleAngle(v);
     const major = Number.isInteger(v);
     const [x1, y1] = polar(SCALE_R - (major ? 9 : 6), a);
     const [x2, y2] = polar(SCALE_R + (major ? 9 : 6), a);
     ticks += `<line class="pal-tick${major ? " major" : ""}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
   }
-  const scaleLabels = [1, 5, 10]
+  const scaleLabels = LABELS
     .map((v) => {
       const [x, y] = polar(SCALE_R + 22, scaleAngle(v));
-      return `<text class="pal-scale-label" x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle">${v}</text>`;
+      return `<text class="pal-scale-label" x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle">${String(v).replace(".", ",")}</text>`;
     })
     .join("");
   svg.innerHTML =
-    `<defs><pattern id="pal-hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
+    `<defs><pattern id="${hatchId}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">` +
     `<rect width="6" height="6" fill="#3a3e47"/><line x1="0" y1="0" x2="0" y2="6" stroke="rgba(255,255,255,.16)" stroke-width="2"/>` +
     `</pattern></defs>` +
     `<circle class="pal-disc" cx="${C}" cy="${C}" r="${DISC}"/>` +
@@ -125,8 +133,8 @@ export function createDial(o) {
   knob.className = "pal-knob";
   knob.tabIndex = 0;
   knob.setAttribute("role", "slider");
-  knob.setAttribute("aria-valuemin", String(DETAIL_MIN));
-  knob.setAttribute("aria-valuemax", String(DETAIL_MAX));
+  knob.setAttribute("aria-valuemin", String(MIN));
+  knob.setAttribute("aria-valuemax", String(MAX));
   knob.title = o.knobTitle;
   knob.innerHTML =
     `<div class="pal-rot" style="position:absolute;inset:0"><div class="pal-knurl"></div><div class="pal-pointer"></div></div>` +
@@ -212,7 +220,7 @@ export function createDial(o) {
     (e) => {
       e.preventDefault();
       e.stopPropagation();
-      setDetail(detail + (e.deltaY < 0 ? DETAIL_STEP : -DETAIL_STEP));
+      setDetail(detail + (e.deltaY < 0 ? STEP : -STEP));
     },
     { passive: false }
   );
@@ -224,7 +232,7 @@ export function createDial(o) {
   });
   knob.addEventListener("pointermove", (e) => {
     // 12 px de glissé = un cran
-    if (drag) setDetail(drag.v + ((drag.y - e.clientY) / 12) * DETAIL_STEP);
+    if (drag) setDetail(drag.v + ((drag.y - e.clientY) / 12) * STEP);
   });
   const endDrag = () => (drag = null);
   knob.addEventListener("pointerup", endDrag);
@@ -234,7 +242,7 @@ export function createDial(o) {
     if (!step) return;
     e.preventDefault();
     e.stopPropagation();
-    setDetail(detail + step * DETAIL_STEP);
+    setDetail(detail + step * STEP);
   });
 
   const sync = () => {

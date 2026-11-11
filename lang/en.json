@@ -80,7 +80,9 @@
         "mesh": "Fine mesh"
       },
       "Density": "Spacing",
-      "DensityHint": "1: original pattern. 2: bars twice as far apart. 0.5: twice as tight."
+      "DensityHint": "1: original pattern. 2: bars twice as far apart. 0.5: twice as tight.",
+      "KnobHint": "Bar spacing: mouse wheel, drag up or down, or arrow keys",
+      "DialHint": "Enter: apply · Escape: cancel"
     }
   }
 }
