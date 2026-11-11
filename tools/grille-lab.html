@@ -1,0 +1,372 @@
+<title>Projection de grille</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans+SC:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Plan : même atelier que le banc du pinceau. La scène occupe tout, un pupitre à droite
+     (sous la scène sur téléphone). Look sombre assumé, comme l'éclairage de Foundry. */
+  :root {
+    color-scheme: dark;
+    --ink: #121518;
+    --panel: #1a1e22;
+    --raised: #23292e;
+    --line: #313840;
+    --fg: #e8e4da;
+    --muted: #949a96;
+    --amber: #ffb347;
+    --font-display: "Alegreya Sans SC", "Trebuchet MS", sans-serif;
+    --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  html, body { height: 100%; }
+  body { background: var(--ink); color: var(--fg); font: 14px/1.45 var(--font-body); overflow: hidden; }
+  .app { height: 100%; display: grid; grid-template-columns: 1fr 300px; grid-template-rows: auto 1fr; grid-template-areas: "top top" "scene side"; }
+  header {
+    grid-area: top; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px;
+    padding-block: 10px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  header h1 { margin: 0; font: 700 22px/1 var(--font-display); letter-spacing: 0.06em; }
+  header span { color: var(--muted); font-size: 13px; }
+  .scene { grid-area: scene; position: relative; min-width: 0; min-height: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  canvas.dragging { cursor: grabbing; }
+  aside {
+    grid-area: side; background: var(--panel); border-left: 1px solid var(--line); overflow-y: auto;
+    padding-block: 16px; padding-inline: 16px max(16px, env(safe-area-inset-right, 0px));
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  section { display: flex; flex-direction: column; gap: 10px; }
+  h2 { margin: 0; font: 700 13px/1 var(--font-display); letter-spacing: 0.12em; color: var(--muted); }
+  .seg { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+  .seg.three { grid-template-columns: repeat(3, 1fr); }
+  button {
+    font: 500 13px/1.2 var(--font-body); color: var(--fg); background: var(--raised);
+    border: 1px solid var(--line); border-radius: 6px; padding: 8px 6px; cursor: pointer;
+  }
+  button:hover { border-color: var(--muted); }
+  button[aria-pressed="true"] { background: var(--fg); color: var(--ink); border-color: var(--fg); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
+  .slider { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+  .slider label { font-size: 13px; }
+  .slider output { font: 500 12px var(--font-mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .slider input { grid-column: 1 / -1; width: 100%; accent-color: var(--amber); }
+  .slider small { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+  ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 13px; }
+  .err { color: #ff8a6b; }
+  @media (max-width: 760px) {
+    body { overflow: auto; }
+    .app { height: auto; grid-template-columns: 1fr; grid-template-rows: auto 60vh auto; grid-template-areas: "top" "scene" "side"; }
+    aside { border-left: 0; border-top: 1px solid var(--line); overflow: visible; padding-left: max(16px, env(safe-area-inset-left, 0px)); }
+  }
+</style>
+
+<div class="app">
+  <header>
+    <h1>Projection de grille</h1>
+    <span>Palisade · banc d'essai de l'ombre d'une grille</span>
+  </header>
+  <div class="scene"><canvas id="gl" aria-label="Scène vue de dessus : lampe, pièce et grille, déplaçables à la souris"></canvas></div>
+  <aside>
+    <section>
+      <h2>Rendu</h2>
+      <div class="seg" role="group" aria-label="Rendu">
+        <button id="mode-proj" aria-pressed="true">Projeté</button>
+        <button id="mode-rays" aria-pressed="false">Rayons (2.1)</button>
+      </div>
+    </section>
+    <section>
+      <h2>Motif</h2>
+      <div class="seg three" role="group" aria-label="Motif">
+        <button data-pattern="bars" aria-pressed="false">Barreaux</button>
+        <button data-pattern="lattice" aria-pressed="true">Croisillons</button>
+        <button data-pattern="mesh" aria-pressed="false">Grillage</button>
+      </div>
+      <div class="slider">
+        <label for="spacing">Écart</label><output id="o-spacing"></output>
+        <input id="spacing" type="range" min="0.08" max="0.6" step="0.01" value="0.3">
+        <small>Entre deux barreaux, en cases. Le même dans les deux sens.</small>
+      </div>
+      <div class="slider">
+        <label for="thick">Épaisseur</label><output id="o-thick"></output>
+        <input id="thick" type="range" min="0.1" max="0.6" step="0.01" value="0.25">
+        <small>Part de l'écart occupée par un barreau.</small>
+      </div>
+    </section>
+    <section>
+      <h2>Hauteurs</h2>
+      <div class="slider">
+        <label for="lh">Lampe</label><output id="o-lh"></output>
+        <input id="lh" type="range" min="0.3" max="4" step="0.05" value="1.5">
+        <small>Plus elle est haute, plus les bandes s'éloignent de la grille.</small>
+      </div>
+      <div class="slider">
+        <label for="gb">Bas de la grille</label><output id="o-gb"></output>
+        <input id="gb" type="range" min="0" max="3" step="0.05" value="0">
+        <small>0 : herse ou barreaux de cellule. Plus haut : fenêtre, le mur plein est dessous.</small>
+      </div>
+      <div class="slider">
+        <label for="gt">Haut de la grille</label><output id="o-gt"></output>
+        <input id="gt" type="range" min="0.1" max="4" step="0.05" value="2.5">
+        <small>Au-dessus, mur plein.</small>
+      </div>
+    </section>
+    <section>
+      <h2>Mode d'emploi</h2>
+      <ul>
+        <li>Glisse la lampe (rond ambre) pour voir l'ombre se déformer.</li>
+        <li>Glisse les extrémités de la grille (ronds blancs) pour la tourner ou l'allonger.</li>
+        <li>« Rayons (2.1) » montre le rendu actuel du module, pour comparer.</li>
+      </ul>
+      <p id="err" class="err" hidden>WebGL n'est pas disponible dans ce navigateur : le banc ne peut pas s'afficher.</p>
+    </section>
+  </aside>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const canvas = $("gl");
+  const gl = canvas.getContext("webgl", { antialias: true });
+  if (!gl) { $("err").hidden = false; return; }
+
+  // Monde : pièce de 10 × 6,4 cases, 100 unités par case (comme une scène Foundry)
+  const W = 1000, H = 640, GRID = 100;
+  const state = {
+    light: [430, 300],
+    grille: [[640, 180], [640, 460]],
+    mode: "proj",
+    pattern: "lattice"
+  };
+  // murs pleins : la pièce, avec une ouverture sur le mur de droite… non : la grille coupe la pièce en deux
+  const room = [[60, 60], [940, 60], [940, 580], [60, 580]];
+  function solidWalls() {
+    const [a, b] = state.grille;
+    const walls = [];
+    for (let i = 0; i < 4; i++) walls.push([...room[i], ...room[(i + 1) % 4]]);
+    // cloison dans le prolongement de la grille, jusqu'aux murs du haut et du bas
+    const dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy) || 1;
+    const ux = dx / len, uy = dy / len;
+    walls.push([a[0], a[1], a[0] - ux * 2000, a[1] - uy * 2000]);
+    walls.push([b[0], b[1], b[0] + ux * 2000, b[1] + uy * 2000]);
+    return walls;
+  }
+
+  const vs = `attribute vec2 p; varying vec2 w; uniform vec2 world;
+    void main(){ w = (p * 0.5 + 0.5) * world; w.y = world.y - w.y; gl_Position = vec4(p, 0.0, 1.0); }`;
+  const fs = `precision highp float;
+    varying vec2 w;
+    uniform vec2 L; uniform float R; uniform float lh;
+    uniform vec4 G; uniform float spacing; uniform float thick; uniform float gb; uniform float gt;
+    uniform int mode; uniform int pattern;
+    uniform vec4 walls[6];
+    uniform float grid;
+
+    // segment [a,b] contre segment [c,d] : renvoie (t sur ab, u sur cd), ou -1
+    vec2 hit(vec2 a, vec2 b, vec2 c, vec2 d){
+      vec2 r = b - a, s = d - c;
+      float den = r.x * s.y - r.y * s.x;
+      if (abs(den) < 1e-6) return vec2(-1.0);
+      vec2 q = c - a;
+      float t = (q.x * s.y - q.y * s.x) / den;
+      float u = (q.x * r.y - q.y * r.x) / den;
+      if (t > 0.0 && t < 1.0 && u >= 0.0 && u <= 1.0) return vec2(t, u);
+      return vec2(-1.0);
+    }
+    float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+    // dalles de pierre, pour voir le motif se poser sur un vrai sol
+    vec3 floorColor(vec2 p){
+      vec2 cell = floor(p / 50.0);
+      vec2 f = fract(p / 50.0);
+      float joint = step(0.04, f.x) * step(0.04, f.y);
+      float tone = 0.85 + 0.15 * hash(cell);
+      float grain = 0.93 + 0.07 * hash(floor(p / 3.0));
+      return mix(vec3(0.16, 0.15, 0.14), vec3(0.46, 0.42, 0.37) * tone * grain, joint);
+    }
+    // 1 si la coordonnée tombe dans un barreau (bords adoucis)
+    float bar(float x, float period, float frac, float aa){
+      float f = fract(x / period);
+      float d = min(f, 1.0 - f) * period;      // distance à l'axe du barreau le plus proche
+      return 1.0 - smoothstep(frac * period * 0.5 - aa, frac * period * 0.5 + aa, d);
+    }
+    void main(){
+      vec3 base = floorColor(w);
+      float d = distance(w, L);
+      float lit = pow(clamp(1.0 - d / R, 0.0, 1.0), 1.4);
+      for (int i = 0; i < 6; i++){
+        if (hit(L, w, walls[i].xy, walls[i].zw).x > 0.0) lit = 0.0;
+      }
+      vec2 g = hit(L, w, G.xy, G.zw);
+      if (g.x > 0.0 && lit > 0.0){
+        float glen = distance(G.xy, G.zw);
+        float s = spacing * grid;
+        float aa = 0.6 + d * 0.004;              // les ombres lointaines sont plus floues
+        float along = g.y * glen;
+        float shade = bar(along - glen * 0.5, s, thick, aa);   // barreaux verticaux : centrés sur la grille
+        if (mode == 0){
+          // hauteur à laquelle le rayon lampe → sol traverse la grille
+          float z = lh * (1.0 - g.x) * grid;
+          float zb = gb * grid, zt = gt * grid;
+          if (z < zb || z > zt) shade = 1.0;      // sous ou au-dessus de la grille : mur plein
+          else if (pattern != 0) shade = max(shade, bar(z - zb, s, thick, aa * 0.6));  // barreaux horizontaux
+        }
+        lit *= 1.0 - shade;
+      }
+      vec3 warm = vec3(1.0, 0.78, 0.48);
+      vec3 col = base * (0.18 + 1.35 * lit * warm);
+      // tracé de la grille et des murs
+      float onG = 0.0;
+      vec2 ga = G.xy, gd = G.zw - G.xy;
+      float tt = clamp(dot(w - ga, gd) / dot(gd, gd), 0.0, 1.0);
+      if (distance(w, ga + tt * gd) < 2.5) onG = 1.0;
+      col = mix(col, vec3(0.85, 0.83, 0.78), onG * 0.85);
+      for (int i = 0; i < 6; i++){
+        vec2 a = walls[i].xy, e = walls[i].zw - walls[i].xy;
+        float k = clamp(dot(w - a, e) / dot(e, e), 0.0, 1.0);
+        if (distance(w, a + k * e) < 4.0) col = vec3(0.07, 0.07, 0.08);
+      }
+      gl_FragColor = vec4(col, 1.0);
+    }`;
+
+  function compile(type, src) {
+    const sh = gl.createShader(type);
+    gl.shaderSource(sh, src);
+    gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+    return sh;
+  }
+  const prog = gl.createProgram();
+  gl.attachShader(prog, compile(gl.VERTEX_SHADER, vs));
+  gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(prog);
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, "p");
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+  const U = (n) => gl.getUniformLocation(prog, n);
+
+  // Vue : le monde est ajusté au canevas, centré
+  let view = { s: 1, ox: 0, oy: 0 };
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const r = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.round(r.width * dpr));
+    canvas.height = Math.max(1, Math.round(r.height * dpr));
+    const s = Math.min(r.width / W, r.height / H);
+    view = { s, ox: (r.width - W * s) / 2, oy: (r.height - H * s) / 2, cw: r.width, ch: r.height };
+    draw();
+  }
+  const toWorld = (cx, cy) => [(cx - view.ox) / view.s, (cy - view.oy) / view.s];
+
+  function draw() {
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    // monde visible = tout le canevas, ramené en unités monde
+    gl.uniform2f(U("world"), view.cw / view.s, view.ch / view.s);
+    const shift = (p) => [p[0] + view.ox / view.s, p[1] + view.oy / view.s];
+    const L = shift(state.light);
+    const [a, b] = state.grille.map(shift);
+    gl.uniform2f(U("L"), L[0], L[1]);
+    gl.uniform1f(U("R"), 620);
+    gl.uniform1f(U("lh"), +$("lh").value);
+    gl.uniform4f(U("G"), a[0], a[1], b[0], b[1]);
+    gl.uniform1f(U("spacing"), +$("spacing").value * (state.pattern === "mesh" ? 0.45 : 1));
+    gl.uniform1f(U("thick"), +$("thick").value);
+    gl.uniform1f(U("gb"), +$("gb").value);
+    gl.uniform1f(U("gt"), Math.max(+$("gt").value, +$("gb").value + 0.05));
+    gl.uniform1i(U("mode"), state.mode === "proj" ? 0 : 1);
+    gl.uniform1i(U("pattern"), state.pattern === "bars" ? 0 : 1);
+    gl.uniform1f(U("grid"), GRID);
+    const walls = solidWalls().map((c) => [...shift([c[0], c[1]]), ...shift([c[2], c[3]])]);
+    gl.uniform4fv(U("walls"), new Float32Array(walls.flat()));
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    drawHandles();
+  }
+
+  // poignées : un second canevas 2D par-dessus, pour rester net
+  const overlay = document.createElement("canvas");
+  overlay.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
+  canvas.after(overlay);
+  const ctx = overlay.getContext("2d");
+  function drawHandles() {
+    const dpr = window.devicePixelRatio || 1;
+    overlay.width = canvas.width;
+    overlay.height = canvas.height;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const scr = (p) => [view.ox + p[0] * view.s, view.oy + p[1] * view.s];
+    const dot = (p, r, fill) => {
+      const [x, y] = scr(p);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#121518";
+      ctx.stroke();
+    };
+    dot(state.light, 10, "#ffb347");
+    for (const p of state.grille) dot(p, 7, "#e8e4da");
+  }
+
+  // glisser la lampe ou une extrémité
+  let drag = null;
+  canvas.addEventListener("pointerdown", (e) => {
+    const r = canvas.getBoundingClientRect();
+    const p = toWorld(e.clientX - r.left, e.clientY - r.top);
+    const cand = [["light", state.light], ["g0", state.grille[0]], ["g1", state.grille[1]]];
+    let best = null, bestD = 30 / view.s;
+    for (const [k, q] of cand) {
+      const d = Math.hypot(p[0] - q[0], p[1] - q[1]);
+      if (d < bestD) { best = k; bestD = d; }
+    }
+    if (!best) return;
+    drag = best;
+    canvas.setPointerCapture(e.pointerId);
+    canvas.classList.add("dragging");
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    const r = canvas.getBoundingClientRect();
+    const [x, y] = toWorld(e.clientX - r.left, e.clientY - r.top);
+    const p = [Math.min(Math.max(x, 70), W - 70), Math.min(Math.max(y, 70), H - 70)];
+    if (drag === "light") state.light = p;
+    else state.grille[drag === "g0" ? 0 : 1] = p;
+    draw();
+  });
+  const end = () => { drag = null; canvas.classList.remove("dragging"); };
+  canvas.addEventListener("pointerup", end);
+  canvas.addEventListener("pointercancel", end);
+
+  // réglages
+  const fmt = (v, unit) => `${(+v).toLocaleString("fr-FR", { maximumFractionDigits: 2 })}${unit}`;
+  const units = { spacing: " case", thick: "", lh: " case", gb: " case", gt: " case" };
+  for (const id of Object.keys(units)) {
+    const input = $(id);
+    const show = () => {
+      $("o-" + id).textContent = id === "thick" ? `${Math.round(input.value * 100)} %` : fmt(input.value, units[id]);
+    };
+    show();
+    input.addEventListener("input", () => { show(); draw(); });
+  }
+  for (const btn of document.querySelectorAll("[data-pattern]")) {
+    btn.onclick = () => {
+      state.pattern = btn.dataset.pattern;
+      for (const b of document.querySelectorAll("[data-pattern]")) b.setAttribute("aria-pressed", String(b === btn));
+      draw();
+    };
+  }
+  const setMode = (m) => {
+    state.mode = m;
+    $("mode-proj").setAttribute("aria-pressed", String(m === "proj"));
+    $("mode-rays").setAttribute("aria-pressed", String(m === "rays"));
+    draw();
+  };
+  $("mode-proj").onclick = () => setMode("proj");
+  $("mode-rays").onclick = () => setMode("rays");
+
+  new ResizeObserver(resize).observe(canvas.parentElement);
+  resize();
+})();
+</script>
