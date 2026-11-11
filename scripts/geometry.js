@@ -252,23 +252,86 @@ export function weldChain(points, walls, tolerance) {
   }
 
   const kept = [];
+  // Un segment est un doublon s'il longe un mur existant ou un segment déjà gardé. Près du point
+  // partagé avec un segment voisin du trait, être « proche » de ce voisin ne prouve rien (c'est
+  // juste la jonction) : ces échantillons sont neutres. Sans ça, un tout petit segment collé à son
+  // voisin passait pour un doublon et laissait un trou dans la chaîne.
   const covered = (c) => {
     const [a, b] = endpoints(c);
     const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
     const n = Math.max(2, Math.ceil(len / Math.max(1, tolerance / 2)));
-    for (let k = 0; k <= n; k++) {
-      const s = [a[0] + ((b[0] - a[0]) * k) / n, a[1] + ((b[1] - a[1]) * k) / n];
-      const near = (w) => {
-        const [wa, wb] = endpoints(w);
-        return distToSegment(s, wa, wb) <= tolerance;
-      };
-      if (!walls.some((w) => near(w.c)) && !kept.some(near)) return false;
+    const near = (s, w) => {
+      const [wa, wb] = endpoints(w);
+      return distToSegment(s, wa, wb) <= tolerance;
+    };
+    const shared = (k) => endpoints(k).filter((e) => samePoint(e, a) || samePoint(e, b));
+    let confirmed = 0;
+    for (let i = 0; i <= n; i++) {
+      const s = [a[0] + ((b[0] - a[0]) * i) / n, a[1] + ((b[1] - a[1]) * i) / n];
+      let neutral = false;
+      const hit =
+        walls.some((w) => near(s, w.c)) ||
+        kept.some((k) => {
+          if (!near(s, k)) return false;
+          const joints = shared(k);
+          if (joints.some((e) => Math.sqrt(dist2(s, e)) <= tolerance)) {
+            neutral = true;
+            return false;
+          }
+          return true;
+        });
+      if (hit) confirmed++;
+      else if (!neutral) return false;
     }
-    return true;
+    return confirmed > 0;
   };
   for (let i = 0; i < welded.length - 1; i++) {
     const c = toCoords(welded[i], welded[i + 1]);
     if (!isDegenerate(c) && !covered(c)) kept.push(c);
   }
   return kept;
+}
+
+/**
+ * Ressoudure : rapproche les extrémités libres (qui ne touchent aucun autre mur) d'autres
+ * extrémités libres toutes proches, pour refermer les petits trous d'une chaîne de murs.
+ * Les extrémités déjà reliées ne bougent pas, et les deux bouts d'un même mur ne sont jamais
+ * soudés ensemble : une chaîne dense de petits murs n'est pas écrasée.
+ * @param {{id: string, c: number[]}[]} walls
+ * @param {number} tolerance  écart maximal à refermer (unités de scène)
+ * @returns {{_id: string, c: number[]}[]} mises à jour
+ */
+export function weldEndpoints(walls, tolerance) {
+  const count = new Map();
+  for (const w of walls) for (const e of endpoints(w.c)) count.set(pointKey(e), (count.get(pointKey(e)) ?? 0) + 1);
+  const free = [];
+  for (const w of walls) endpoints(w.c).forEach((e, i) => count.get(pointKey(e)) === 1 && free.push({ w, i, p: e }));
+
+  // paires d'extrémités libres de murs différents, les plus proches d'abord
+  const pairs = [];
+  for (let a = 0; a < free.length; a++) {
+    for (let b = a + 1; b < free.length; b++) {
+      if (free[a].w.id === free[b].w.id) continue;
+      const d = Math.sqrt(dist2(free[a].p, free[b].p));
+      if (d <= tolerance) pairs.push({ a: free[a], b: free[b], d });
+    }
+  }
+  pairs.sort((x, y) => x.d - y.d);
+
+  const moved = new Map(); // id → coordonnées modifiées
+  const used = new Set();
+  for (const { a, b } of pairs) {
+    const ka = `${a.w.id}:${a.i}`;
+    const kb = `${b.w.id}:${b.i}`;
+    if (used.has(ka) || used.has(kb)) continue;
+    // l'extrémité de a rejoint celle de b (b ne bouge pas)
+    const c = [...(moved.get(a.w.id) ?? a.w.c)];
+    c[a.i * 2] = b.p[0];
+    c[a.i * 2 + 1] = b.p[1];
+    if (isDegenerate(c)) continue;
+    moved.set(a.w.id, c);
+    used.add(ka);
+    used.add(kb);
+  }
+  return [...moved].map(([_id, c]) => ({ _id, c }));
 }

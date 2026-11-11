@@ -7,10 +7,11 @@
  *   connected(wall)        : Set des ids des murs reliés à ce mur (lui compris)
  *   selectConnected(wall)  : sélectionne sur le canevas tous les murs reliés à ce mur
  *   snapStroke(...)        : colle un trait sur les murs d'une image (voir brush.js)
+ *   weld()                 : referme les petits trous entre murs (sélection ou scène)
  *   geometry               : fonctions de géométrie (voir geometry.js)
  */
 
-import { MODULE_ID, isBar, log } from "./constants.js";
+import { MODULE_ID, isBar, log, snapTolerance, t } from "./constants.js";
 import { registerLinker, isEnabled } from "./linker.js";
 import { registerGrille, schedule } from "./grille.js";
 import { registerProjection, invalidateProjection, projectionStatus } from "./projection-render.js";
@@ -149,6 +150,25 @@ function selectConnected(wall) {
   for (const id of ids) canvas.walls.get(id)?.control({ releaseOthers: false });
 }
 
+/**
+ * Ressoude les petits trous entre murs : la sélection, ou toute la scène si rien n'est sélectionné.
+ * Sert surtout aux murs créés au pinceau avant la 2.2.5, dont certaines chaînes avaient des trous.
+ */
+async function weld() {
+  const scene = canvas.scene;
+  if (!scene) return 0;
+  const selected = new Set(canvas.walls?.controlled.map((w) => w.id) ?? []);
+  const walls = wallList(scene);
+  const doors = new Set(walls.filter((w) => w.door).map((w) => w.id));
+  // toutes les extrémités comptent pour savoir lesquelles sont libres ; seuls les murs visés bougent
+  const updates = geometry
+    .weldEndpoints(walls, snapTolerance())
+    .filter((u) => !doors.has(u._id) && (!selected.size || selected.has(u._id)));
+  if (updates.length) await scene.updateEmbeddedDocuments("Wall", updates, { [MODULE_ID]: true });
+  ui.notifications.info(t("PALISADE.Weld.Done", { count: updates.length }));
+  return updates.length;
+}
+
 /* -------------------------------------------- */
 /*  Hooks                                       */
 /* -------------------------------------------- */
@@ -182,6 +202,7 @@ Hooks.once("init", () => {
     selectConnected,
     snapStroke,
     projectionStatus,
+    weld,
     geometry
   };
 });
@@ -201,8 +222,16 @@ Hooks.on("getSceneControlButtons", (controls) => {
     onChange: (event, active) => game.settings.set(MODULE_ID, "enabled", active)
   };
   const brush = brushToolButton();
-  if (Array.isArray(walls.tools)) walls.tools.push(tool, brush);
-  else Object.assign(walls.tools, { [MODULE_ID]: tool, [brush.name]: brush });
+  const welder = {
+    name: `${MODULE_ID}-weld`,
+    title: "PALISADE.Controls.Weld",
+    icon: "fa-solid fa-link-slash",
+    button: true,
+    order: 102,
+    onChange: () => weld()
+  };
+  if (Array.isArray(walls.tools)) walls.tools.push(tool, brush, welder);
+  else Object.assign(walls.tools, { [MODULE_ID]: tool, [brush.name]: brush, [welder.name]: welder });
 });
 
 Hooks.once("ready", () => log("prêt"));

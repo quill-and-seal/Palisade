@@ -31,6 +31,8 @@ Tout se passe dans l'outil des murs, sans rien changer à ta façon de tracer.
 
 Le bouton **chaîne** dans les outils des murs coupe ou réactive Palisade. Pratique pour poser un mur volontairement détaché.
 
+Le bouton **Ressouder** (maillon brisé) referme les petits trous entre extrémités de murs qui ne touchent rien, dans la distance d'accroche : sur la sélection, ou sur toute la scène si rien n'est sélectionné. Les portes ne bougent pas, et les deux bouts d'un même mur ne sont jamais soudés ensemble.
+
 Le raccourci **Maj + L** sélectionne tous les murs reliés au mur survolé, par exemple pour déplacer une pièce entière d'un coup. Il se change dans **Configurer les contrôles**.
 
 ## Pinceau
@@ -128,6 +130,7 @@ palisade.connected(wall);         // Set des ids des murs reliés à ce mur
 palisade.selectConnected(wall);   // les sélectionne sur le canevas
 palisade.snapStroke(stroke, image, options); // colle un trait sur les murs d'une image
 palisade.projectionStatus();      // ombre projetée : grilles, lumières, ombres dessinées, erreurs
+await palisade.weld();            // referme les petits trous (sélection ou scène), renvoie le nombre de murs retouchés
 palisade.geometry;                // fonctions de géométrie (accroche, coupure, jointures)
 ```
 

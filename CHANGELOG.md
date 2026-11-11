@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.2.6
+
+- Pinceau : les murs créés restent tous reliés. La soudure prenait parfois un tout petit segment du trait pour un doublon de son voisin et le supprimait, ce qui laissait un trou de quelques pixels dans la chaîne (la lumière et la vue passaient par là).
+- Nouveau bouton **Ressouder** dans les outils des murs : il referme les petits trous entre extrémités libres (distance d'accroche) dans la sélection, ou dans toute la scène si rien n'est sélectionné. Pratique pour réparer les murs tracés au pinceau avant cette version. Les portes ne bougent pas. Aussi en API : `game.modules.get("palisade").api.weld()`.
+
 ## 2.2.5
 
 - Ombre et vue bien distinctes : l'ombre projetée par une grille n'est plus du noir complet (une ombre de feu laisse passer la lumière ambiante), réglable avec « Intensité de l'ombre des grilles » (60 % par défaut) ; les barreaux devant les yeux d'un PJ sont en noir complet.

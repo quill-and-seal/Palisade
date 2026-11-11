@@ -2,7 +2,8 @@
   "PALISADE": {
     "Controls": {
       "Toggle": "Palisade : murs auto-reliés",
-      "Brush": "Pinceau : dessine près d'un mur de la carte, il s'y colle. Entrée ou clic : créer, Échap : annuler."
+      "Brush": "Pinceau : dessine près d'un mur de la carte, il s'y colle. Entrée ou clic : créer, Échap : annuler.",
+      "Weld": "Ressouder : referme les petits trous entre les murs sélectionnés (ou de toute la scène)."
     },
     "Settings": {
       "Enabled": {
@@ -105,6 +106,9 @@
       "Flame": "Taille de la flamme",
       "FlameHint": "Rayon en cases. Bougie ≈ 0,02, torche ≈ 0,06, brasero ≈ 0,3, feu de camp ≈ 0,6. Plus elle est grande, plus l'ombre d'une grille est douce.",
       "TokenHint": "La hauteur d'une lumière portée suit la taille du token (à hauteur de main)."
+    },
+    "Weld": {
+      "Done": "{count} trou(s) refermé(s)."
     }
   }
 }

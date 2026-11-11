@@ -159,3 +159,34 @@ test("accroche d'un mur plus court que la distance d'accroche : il reste soudé 
 function isDegenerateLocal(c) {
   return c[0] === c[2] && c[1] === c[3];
 }
+
+test("pinceau : un tout petit segment du trait n'est plus pris pour un doublon (pas de trou)", async () => {
+  const { weldChain } = await import("../scripts/geometry.js");
+  // le 2e segment (2 × 4 px) est à moins de la distance d'accroche du 1er
+  const out = weldChain([[0, 0], [100, 0], [102, 4], [200, 4]], [], 12);
+  for (let i = 1; i < out.length; i++) {
+    assert.deepEqual(out[i].slice(0, 2), out[i - 1].slice(2, 4), `trou entre ${out[i - 1]} et ${out[i]}`);
+  }
+  assert.deepEqual(out[0].slice(0, 2), [0, 0]);
+  assert.deepEqual(out[out.length - 1].slice(2, 4), [200, 4]);
+});
+
+test("ressoudure : les petits trous entre extrémités libres se referment, le reste ne bouge pas", async () => {
+  const { weldEndpoints } = await import("../scripts/geometry.js");
+  const walls = [
+    // chaîne avec un trou de 4 px entre a et b (comme sur le champignon d'Argan)
+    { id: "a", c: [4884, 6058, 4890, 6011] },
+    { id: "b", c: [4889, 6015, 4888, 6021] },
+    { id: "c", c: [4888, 6021, 4883, 6030] },
+    // petit mur isolé de 3 px : ses deux bouts ne doivent pas être soudés ensemble
+    { id: "d", c: [6000, 6000, 6003, 6000] },
+    // extrémité libre lointaine : pas de soudure
+    { id: "e", c: [7000, 7000, 7100, 7000] }
+  ];
+  const ups = weldEndpoints(walls, 12);
+  assert.equal(ups.length, 1);
+  const u = ups[0];
+  const moved = u._id === "a" ? u.c.slice(2, 4) : u.c.slice(0, 2);
+  const target = u._id === "a" ? [4889, 6015] : [4890, 6011];
+  assert.deepEqual(moved, target, "le trou est refermé sur l'autre extrémité");
+});

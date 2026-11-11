@@ -2,7 +2,8 @@
   "PALISADE": {
     "Controls": {
       "Toggle": "Palisade: auto-linked walls",
-      "Brush": "Brush: draw near a wall of the map and it snaps to it. Enter or click: create, Escape: cancel."
+      "Brush": "Brush: draw near a wall of the map and it snaps to it. Enter or click: create, Escape: cancel.",
+      "Weld": "Weld: closes small gaps between the selected walls (or the whole scene)."
     },
     "Settings": {
       "Enabled": {
@@ -105,6 +106,9 @@
       "Flame": "Flame size",
       "FlameHint": "Radius in grid units. Candle ≈ 0.02, torch ≈ 0.06, brazier ≈ 0.3, campfire ≈ 0.6. The larger, the softer a grate's shadow.",
       "TokenHint": "A carried light's height follows the token's size (hand height)."
+    },
+    "Weld": {
+      "Done": "{count} gap(s) closed."
     }
   }
 }

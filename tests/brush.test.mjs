@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { inflateSync } from "node:zlib";
 import { snapStroke, simplify, resample } from "../scripts/brush.js";
+import { weldChain } from "../scripts/geometry.js";
 
 /* Générateur pseudo-aléatoire déterministe */
 function rng(seed) {
@@ -245,5 +246,26 @@ test("capture du champignon : la boucle suit le contour du dessin, sans pointes 
       }
     }
     assert.ok(worst <= limit, `rayon ${radius} : un segment s'écarte de ${worst} px d'image du contour`);
+  }
+});
+
+test("capture du champignon : les murs créés forment une boucle fermée, sans trou", () => {
+  // avant la 2.2.5, la soudure supprimait de tout petits segments et laissait des trous
+  const src = readFileSync(new URL("./brush.test.mjs", import.meta.url), "utf8");
+  const stroke = JSON.parse(src.match(/const stroke = (\[\[465.*?\]\]);/)[1]);
+  const blob = inflateSync(readFileSync(new URL("./fixtures-champignon.rgba.z", import.meta.url)));
+  const [width, height] = new Uint32Array(blob.buffer, blob.byteOffset, 2);
+  const data = new Uint8Array(blob.buffer, blob.byteOffset + 8, width * height * 4);
+  const image = { width, height, data, originX: 160, originY: 40, scale: 0.25 };
+  for (const radius of [48, 74]) {
+    const res = snapStroke(stroke, image, { radius });
+    for (const tolerance of [6, 12, 24]) {
+      const count = new Map();
+      for (const c of weldChain(res.points, [], tolerance)) {
+        for (const k of [`${c[0]},${c[1]}`, `${c[2]},${c[3]}`]) count.set(k, (count.get(k) ?? 0) + 1);
+      }
+      const free = [...count].filter(([, n]) => n === 1).map(([k]) => k);
+      assert.deepEqual(free, [], `rayon ${radius}, accroche ${tolerance} : extrémités libres ${free.join(" ")}`);
+    }
   }
 });
