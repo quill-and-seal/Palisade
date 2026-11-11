@@ -58,6 +58,7 @@ test("un mur à motif laisse passer la lumière et reçoit des barreaux qui ne b
   const [wall] = await scene.createEmbeddedDocuments("Wall", [{ c: [0, 0, 200, 0], flags: { palisade: { pattern: "bars" } } }]);
   await settle();
   assert.equal(wall.light, 0, "le mur à motif ne doit plus bloquer la lumière");
+  assert.equal(wall.sight, 0, "on voit à travers une grille");
   assert.equal(wall.move, 20, "le mur à motif bloque toujours le passage");
   const b = bars(wall.id);
   assert.equal(b.length, 8, "barreaux tous les 25 px sur 200 px");
@@ -92,6 +93,7 @@ test("retirer le motif rend le mur plein et supprime ses barreaux", async () => 
   await scene.updateEmbeddedDocuments("Wall", [{ _id: wall.id, flags: { palisade: { pattern: "" } } }]);
   await settle();
   assert.equal(wall.light, 20, "le mur redevient plein");
+  assert.equal(wall.sight, 20, "et bloque à nouveau le regard");
   assert.equal(bars(wall.id).length, 0);
 });
 
@@ -172,4 +174,13 @@ test("rendu projeté : aucun barreau-mur, et ceux du rendu « rayons » sont ret
   assert.equal(scene.walls.filter((w) => w.flags.palisade?.barOf).length, 0, "plus aucun barreau-mur dans la scène");
   assert.equal(wall.light, 0, "le mur à motif laisse toujours passer la lumière : c'est la projection qui fait l'ombre");
   settings.grilleRender = "rays";
+});
+
+test("grilles posées avant la vue hachurée : rendues transparentes au regard", async () => {
+  const { seeThroughUpdates } = await import("../scripts/grille.js");
+  const [old] = await scene.createEmbeddedDocuments("Wall", [{ c: [0, 2100, 100, 2100] }]);
+  // motif posé « à l'ancienne » : sans passer par les hooks, le regard reste bloqué
+  old.flags.palisade = { pattern: "bars" };
+  const ups = seeThroughUpdates(scene).filter((u) => u._id === old.id);
+  assert.deepEqual(ups, [{ _id: old.id, sight: 0 }]);
 });

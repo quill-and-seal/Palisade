@@ -25,14 +25,20 @@ export const GRILLE_DEFAULTS = { bottom: 0, top: 3 };
 /** Lumière par défaut : hauteur d'une lampe posée et taille de flamme (torche), en cases. */
 export const LIGHT_DEFAULTS = { height: 1.5, flame: 0.06 };
 
-/**
- * Hauteur d'une lumière portée par un token : à hauteur de main (80 % de la taille de la
- * créature), la taille étant déduite de la largeur du token en cases.
- */
-export function carrierHeight(tokenWidth) {
+/** Taille d'une créature, en cases, déduite de la largeur de son token. */
+function creatureSize(tokenWidth) {
   const w = Number(tokenWidth) || 1;
-  const size = w < 1 ? 0.75 : w < 2 ? 1.2 : w < 3 ? 2.5 : w < 4 ? 4 : 5.5;
-  return Math.round(size * 0.8 * 100) / 100;
+  return w < 1 ? 0.75 : w < 2 ? 1.2 : w < 3 ? 2.5 : w < 4 ? 4 : 5.5;
+}
+
+/** Hauteur d'une lumière portée par un token : à hauteur de main (80 % de la taille de la créature). */
+export function carrierHeight(tokenWidth) {
+  return Math.round(creatureSize(tokenWidth) * 0.8 * 100) / 100;
+}
+
+/** Hauteur des yeux d'un token (92 % de la taille de la créature), pour la vue à travers une grille. */
+export function eyeHeight(tokenWidth) {
+  return Math.round(creatureSize(tokenWidth) * 0.92 * 100) / 100;
 }
 
 /**

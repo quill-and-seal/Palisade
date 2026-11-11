@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.3.0
+
+- Vue à travers les grilles : on voit à travers, mais les barreaux hachurent la vue du PJ, depuis ses yeux (à hauteur d'yeux selon la taille du token). Ce qu'il voit de l'autre côté, tokens compris, apparaît derrière les barreaux.
+- Poser un motif rend le mur transparent au regard (il bloquait la vue comme un mur plein), le retirer le rend opaque ; les grilles déjà posées sont mises à jour au chargement de la scène.
+
 ## 2.2.1
 
 - Corrigé : aucune ombre de grille ne s'affichait en Foundry v14. Les sources de lumière n'y sont plus reliées directement à leur lumière ou à leur token ; Palisade les retrouve maintenant par leur identifiant.

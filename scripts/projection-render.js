@@ -7,11 +7,15 @@
  * vit dans le groupe « primary », entre les dessins et les tokens, comme les effets d'Ember :
  * l'éclairage de Foundry s'applique ensuite par-dessus, et les tokens restent au-dessus.
  *
+ * Vue hachurée : le même calcul est fait depuis les yeux du token qui regarde (à hauteur d'yeux,
+ * sans flou), sur son polygone de vision, et peint par-dessus tout (calque d'interface) : ce
+ * qu'on voit à travers une grille, tokens compris, apparaît derrière les barreaux.
+ *
  * Le shader reprend à l'identique shadeAt() de projection.js (testé dans Node).
  */
 
 import { MODULE_ID, isBar, setting } from "./constants.js";
-import { grilleSegments, carrierHeight, LIGHT_DEFAULTS } from "./projection.js";
+import { grilleSegments, carrierHeight, eyeHeight, LIGHT_DEFAULTS } from "./projection.js";
 
 /** Segments de grille par lumière (au-delà, l'ombre ignore les plus lointains). */
 export const MAX_SEGMENTS = 32;
@@ -143,6 +147,29 @@ export function segmentsNear(segments, x, y, radius) {
 /* -------------------------------------------- */
 
 let container = null;
+let eyeContainer = null;
+let lastEyeKey = "";
+
+/** Opacité des barreaux sur la vue : on devine encore un peu ce qui est derrière. */
+const HATCH = 0.85;
+
+/**
+ * Yeux à utiliser pour la vue hachurée : le token contrôlé s'il a une vision, sinon le seul token
+ * qui en a une. Le MJ sans token sélectionné voit tout, sans hachures.
+ */
+export function pickEye(sources, controlledIds) {
+  const live = sources.filter((s) => s.active !== false && s.shape?.points?.length >= 6);
+  const mine = live.find((s) => controlledIds.includes(String(s.sourceId ?? "").split(".")[1]));
+  // shortcut: plusieurs tokens voyants et aucun sélectionné : pas de hachures (il faudrait combiner les regards)
+  return mine ?? (live.length === 1 ? live[0] : null);
+}
+
+/** Distance maximale entre un point et les sommets d'un polygone [x0, y0, x1, y1…]. */
+const reach = (x, y, points) => {
+  let r = 0;
+  for (let i = 0; i < points.length; i += 2) r = Math.max(r, Math.hypot(points[i] - x, points[i + 1] - y));
+  return r;
+};
 let lastKey = "";
 let wallsVersion = 0;
 let segmentsCache = null;
@@ -215,9 +242,44 @@ function update() {
   if (!canvas.ready || !container) return;
   if (!projecting()) {
     if (container.children.length) clearMeshes();
-    lastKey = "";
+    if (eyeContainer?.children.length) clearChildren(eyeContainer);
+    lastKey = lastEyeKey = "";
     return;
   }
+  updateEye();
+  updateLights();
+}
+
+/** Vue hachurée par les barreaux, depuis les yeux du token qui regarde. */
+function updateEye() {
+  if (!eyeContainer) return;
+  const segments = sceneSegments();
+  const visions = canvas.effects?.visionSources;
+  const eye = segments.length && visions ? pickEye([...(visions.values?.() ?? visions)], (canvas.tokens?.controlled ?? []).map((t) => t.id)) : null;
+  const key = eye ? `${wallsVersion}|${eye.sourceId}:${Math.round(eye.data.x)},${Math.round(eye.data.y)},${eye.shape.points.length},${eye.shape.points[0]},${eye.shape.points[1]}` : "";
+  if (key === lastEyeKey) return;
+  lastEyeKey = key;
+  clearChildren(eyeContainer);
+  status.eye = null;
+  if (!eye) return;
+  const points = [...eye.shape.points];
+  const { x, y } = eye.data;
+  const near = segmentsNear(segments, x, y, reach(x, y, points));
+  if (!near.length) return;
+  const doc = sourceDocument(eye, canvas.scene);
+  try {
+    eyeContainer.addChild(
+      makeShadowMesh({ points, x, y, height: eyeHeight(doc?.width) * canvas.grid.size, flame: 0, bright: 1e9, dim: 1e9 + 1, strength: HATCH, segments: near })
+    );
+    status.eye = eye.sourceId ?? true;
+  } catch (err) {
+    status.errors.push(String(err?.message ?? err));
+    console.error("Palisade | vue hachurée", err);
+  }
+}
+
+/** Ombre des grilles au sol, pour chaque lumière. */
+function updateLights() {
   const segments = sceneSegments();
   const darkness = canvas.environment?.darknessLevel ?? canvas.darknessLevel ?? 1;
   const sources = segments.length ? lightSources() : [];
@@ -228,7 +290,7 @@ function update() {
   if (key === lastKey) return;
   lastKey = key;
   clearMeshes();
-  status = { segments: segments.length, lights: sources.length, meshes: 0, errors: [] };
+  status = { ...status, segments: segments.length, lights: sources.length, meshes: 0, errors: [] };
   // de jour, la lumière générale noie en partie l'ombre d'une lampe
   const strength = 0.35 + 0.65 * Math.min(1, Math.max(0, darkness));
   for (const source of sources) {
@@ -259,9 +321,10 @@ function update() {
   }
 }
 
-function clearMeshes() {
-  for (const child of container.removeChildren()) child.destroy({ children: true });
+function clearChildren(c) {
+  for (const child of c.removeChildren()) child.destroy({ children: true });
 }
+const clearMeshes = () => clearChildren(container);
 
 /** Conteneur dans le groupe « primary », entre les dessins et les tokens (même placement qu'Ember). */
 function createContainer() {
@@ -287,8 +350,11 @@ function createContainer() {
 export function registerProjection() {
   Hooks.on("canvasReady", () => {
     container = createContainer();
+    // la vue hachurée passe par-dessus tout : tokens, éclairage, brouillard
+    eyeContainer = new PIXI.Container();
+    (canvas.interface ?? canvas.stage).addChild(eyeContainer);
     invalidateProjection();
-    lastKey = "";
+    lastKey = lastEyeKey = "";
     tick = () => update();
     canvas.app.ticker.add(tick);
   });
@@ -296,7 +362,8 @@ export function registerProjection() {
     if (tick) canvas.app?.ticker?.remove(tick);
     tick = null;
     container?.destroy({ children: true });
-    container = null;
+    eyeContainer?.destroy({ children: true });
+    container = eyeContainer = null;
   });
   for (const hook of ["createWall", "updateWall", "deleteWall", "updateAmbientLight", "updateToken"]) Hooks.on(hook, invalidateProjection);
 }

@@ -96,6 +96,12 @@ Par défaut, l'ombre d'une grille est **projetée au sol** comme en vrai. Une lu
 | Hauteur d'une lumière portée | Automatique | À hauteur de main, selon la taille du token |
 | Taille de la flamme | Fiche de la lumière ou du token | 0,06 case (torche) |
 
+### Vue à travers une grille
+
+On **voit à travers** une grille, mais ses barreaux **hachurent la vue** du PJ : tout ce qu'il voit de l'autre côté, tokens compris, apparaît derrière les barreaux. Le calcul est le même que pour l'ombre, mais depuis ses yeux (à hauteur d'yeux selon la taille du token) et sans flou. Les hachures suivent le token sélectionné (ou le seul token qui voit) ; le MJ sans token sélectionné voit tout, sans hachures.
+
+Poser un motif rend le mur transparent au regard, le retirer le rend opaque à nouveau. Les grilles posées avant cette version sont rendues transparentes au chargement de la scène.
+
 L'ombre suit la force de la lumière : pleine dans son rayon vif, nulle au bord de son rayon faible, et plus discrète de jour. Le réglage **Rendu des grilles** permet de revenir au rendu « Rayons » de la 2.1 (petits murs cachés, plus léger, sans quadrillage). Le banc d'essai `tools/grille-lab.html` montre le même calcul hors de Foundry.
 
 ## Réglages

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { grilleSegments, shadeAt, barCover, carrierHeight, crossing } from "../scripts/projection.js";
+import { grilleSegments, shadeAt, barCover, carrierHeight, eyeHeight, crossing } from "../scripts/projection.js";
 
 const G = 100; // taille de case
 // grille verticale x = 600, de y = 200 à 500 ; lampe à gauche en (300, 350)
@@ -83,6 +83,7 @@ test("moyenne exacte des barreaux et hauteur de main d'un porteur", () => {
   assert.equal(barCover(5, 10, 0.3, 0), 0, "milieu d'un jour, net");
   assert.equal(carrierHeight(1), 0.96);
   assert.equal(carrierHeight(2), 2);
+  assert.ok(eyeHeight(1) > carrierHeight(1), "les yeux sont plus hauts que la main");
   assert.ok(carrierHeight(0.5) < carrierHeight(1) && carrierHeight(4) > carrierHeight(3));
   assert.equal(crossing([0, 0], [10, 0], [5, -1], [5, 1]).t, 0.5);
 });
@@ -101,4 +102,16 @@ test("source de lumière v14 sans objet : retrouvée par son identifiant, lumiè
   assert.equal(sourceDocument(Object.assign(new PointLightSource(), { object: { document: light } }), scene), light, "objet direct (v12-v13)");
   assert.equal(isGlobalSource(src), false);
   assert.equal(isGlobalSource(Object.assign(new GlobalLightSource(), { data: {} })), true);
+});
+
+test("vue hachurée : les yeux du token contrôlé, sinon du seul token voyant", async () => {
+  const { pickEye } = await import("../scripts/projection-render.js");
+  const shape = { points: [0, 0, 10, 0, 10, 10, 0, 10] };
+  const a = { sourceId: "Token.A", active: true, shape };
+  const b = { sourceId: "Token.B", active: true, shape };
+  assert.equal(pickEye([a, b], ["B"]), b, "le token sélectionné");
+  assert.equal(pickEye([a], []), a, "un seul token voyant");
+  assert.equal(pickEye([a, b], []), null, "plusieurs tokens, aucun sélectionné : pas de hachures");
+  assert.equal(pickEye([], []), null, "MJ sans vision : pas de hachures");
+  assert.equal(pickEye([{ ...a, active: false }], []), null);
 });

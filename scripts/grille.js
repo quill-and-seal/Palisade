@@ -90,18 +90,27 @@ export const settled = () => new Promise((r) => setTimeout(r, 25)).then(() => ru
 
 const mine = (userId) => userId === game.user.id && game.user.isGM;
 
-// Un mur à motif laisse passer la lumière : ce sont ses barreaux qui la découpent.
+// Un mur à motif laisse passer la lumière et le regard : ce sont ses barreaux qui les découpent
+// (ombre projetée et vue hachurée, voir projection-render.js). Retirer le motif le rend plein.
+const SEE_THROUGH = () => ({ light: CONST.WALL_SENSE_TYPES.NONE, sight: CONST.WALL_SENSE_TYPES.NONE });
+const SOLID = () => ({ light: CONST.WALL_SENSE_TYPES.NORMAL, sight: CONST.WALL_SENSE_TYPES.NORMAL });
+
 function onPreCreateWall(doc) {
-  if (patternOf(doc) && !isBar(doc)) doc.updateSource({ light: CONST.WALL_SENSE_TYPES.NONE });
+  if (patternOf(doc) && !isBar(doc)) doc.updateSource(SEE_THROUGH());
 }
 
 function onPreUpdateWall(doc, changes) {
   if (isBar(doc)) return;
   const next = foundry.utils.getProperty(changes, `flags.${MODULE_ID}.pattern`);
   if (next === undefined) return;
-  if (next) changes.light = CONST.WALL_SENSE_TYPES.NONE;
-  // motif retiré : le mur redevient plein
-  else if (patternOf(doc)) changes.light = CONST.WALL_SENSE_TYPES.NORMAL;
+  if (next) Object.assign(changes, SEE_THROUGH());
+  else if (patternOf(doc)) Object.assign(changes, SOLID());
+}
+
+/** Grilles posées avant la vue hachurée : elles bloquaient encore le regard. Rendues transparentes. */
+export function seeThroughUpdates(scene) {
+  const NONE = CONST.WALL_SENSE_TYPES.NONE;
+  return scene.walls.filter((w) => !isBar(w) && patternOf(w) && w.sight !== NONE).map((w) => ({ _id: w.id, sight: NONE }));
 }
 
 // Tout changement d'un mur ordinaire peut toucher une chaîne à motif (tracé, motif, voisin
@@ -214,6 +223,11 @@ function onRenderTokenConfig(app, html) {
 }
 
 export function registerGrille() {
+  Hooks.on("canvasReady", () => {
+    if (!game.users?.activeGM?.isSelf) return;
+    const updates = seeThroughUpdates(canvas.scene);
+    if (updates.length) canvas.scene.updateEmbeddedDocuments("Wall", updates, OPTS);
+  });
   Hooks.on("renderAmbientLightConfig", onRenderAmbientLightConfig);
   Hooks.on("renderTokenConfig", onRenderTokenConfig);
   Hooks.on("preCreateWall", onPreCreateWall);
