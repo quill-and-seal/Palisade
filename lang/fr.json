@@ -36,6 +36,12 @@
       "BrushWallType": {
         "Name": "Pinceau : type de mur",
         "Hint": "Type des murs créés par le pinceau. Traversable : les personnages passent, mais la vue et la lumière sont bloquées. Invisible : bloque le passage, pas la vue. Se change aussi dans le panneau du pinceau. Propre à ce navigateur."
+      },
+      "GrilleRender": {
+        "Name": "Rendu des grilles",
+        "Hint": "Projeté : l'ombre de la grille est peinte au sol selon la hauteur de la lumière et de la grille (quadrillage, pénombre). Rayons : petits murs cachés qui découpent la lumière en rayons (rendu de la 2.1, plus léger).",
+        "Projected": "Projeté (quadrillage)",
+        "Rays": "Rayons (murs cachés)"
       }
     },
     "Keybindings": {
@@ -82,7 +88,19 @@
       "Density": "Écartement",
       "DensityHint": "1 : motif d'origine. 2 : barreaux deux fois plus espacés. 0,5 : deux fois plus serrés.",
       "KnobHint": "Écartement des barreaux : molette, glisser vers le haut ou le bas, ou flèches du clavier",
-      "DialHint": "Entrée : appliquer · Échap : annuler"
+      "DialHint": "Entrée : appliquer · Échap : annuler",
+      "Heights": "Hauteurs (bas, haut)",
+      "Bottom": "Bas de la grille, en cases",
+      "Top": "Haut de la grille, en cases",
+      "HeightsHint": "En cases. Bas à 0 : herse ou barreaux de cellule. Bas plus haut : fenêtre, avec un mur plein dessous. Au-dessus du haut, mur plein. Sert au rendu projeté."
+    },
+    "Light": {
+      "Legend": "Palisade : ombre des grilles",
+      "Height": "Hauteur de la lumière",
+      "HeightHint": "En cases, depuis le sol. Plus elle est haute, plus les bandes d'ombre d'une grille s'éloignent.",
+      "Flame": "Taille de la flamme",
+      "FlameHint": "Rayon en cases. Bougie ≈ 0,02, torche ≈ 0,06, brasero ≈ 0,3, feu de camp ≈ 0,6. Plus elle est grande, plus l'ombre d'une grille est douce.",
+      "TokenHint": "La hauteur d'une lumière portée suit la taille du token (à hauteur de main)."
     }
   }
 }

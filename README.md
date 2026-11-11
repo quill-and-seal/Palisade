@@ -54,7 +54,7 @@ Le **cadran** s'ouvre à l'endroit où tu cliques pour valider, bouton central s
 | Traversable | Passent | Bloquées |
 | Invisible | Bloqués | Passent |
 | Terrain | Bloqués | Limitées |
-| Grille | Bloqués | Vue libre, lumière en bandes (motif barreaux) |
+| Grille | Bloqués | Vue libre, ombre en quadrillage (motif croisillons) |
 
 Le pinceau reconnaît seul les murs dessinés (traits sombres, murs de pierre) et les bords de matière, et cherche jusqu'à 48 px à l'écran autour du trait (réglable). Zoomer rend la recherche plus fine. Les murs créés s'accrochent aux murs voisins comme les autres.
 
@@ -68,9 +68,9 @@ Un mur peut porter un **motif** : barreaux, croisillons ou grillage fin. Il bloq
 
 - **Clic droit sur un mur** (calque des murs) : le cadran s'ouvre à l'endroit du clic. Les segments choisissent le motif (*Aucun* le retire), le bouton central l'écartement (×0,5 à ×4, à la molette), puis **Appliquer** (ou Entrée). Le motif s'applique à toute la sélection si le mur cliqué en fait partie, sinon à toute la chaîne à motif du mur cliqué (un mur ordinaire est visé seul). Glisser au bouton droit déplace toujours la vue.
 - **Dans la fiche du mur** (double-clic) : section **Palisade : motif lumineux**, mêmes réglages.
-- **Au pinceau** : choisis le type **Grille** dans le cadran avant d'appliquer.
+- **Au pinceau** : choisis le type **Grille** (croisillons) dans le cadran avant d'appliquer.
 
-Le mur reste un seul mur : tu le déplaces, le modifies et le supprimes d'un bloc. Ses barreaux sont de petits murs cachés qui ne bloquent que la lumière ; ils sont recalculés à chaque changement et supprimés avec lui.
+Le mur reste un seul mur : tu le déplaces, le modifies et le supprimes d'un bloc. En rendu « Rayons », ses barreaux sont de petits murs cachés qui ne bloquent que la lumière ; ils sont recalculés à chaque changement et supprimés avec lui. En rendu projeté (par défaut), l'ombre est peinte au sol, sans murs cachés.
 
 Les murs reliés bout à bout qui portent le même motif et le même écartement forment une **chaîne** : les barreaux sont répartis le long de la chaîne entière, donc l'écart reste régulier même sur une grille découpée en dizaines de petits murs (tracé au pinceau). Un clic droit sur n'importe quel morceau règle toute la chaîne ; une chaîne s'arrête à un carrefour. La vue n'est pas découpée : on voit à travers la grille. Les tailles suivent la case de la scène (barreaux tous les quarts de case).
 
@@ -79,6 +79,24 @@ Les murs reliés bout à bout qui portent le même motif et le même écartement
 | Barreaux, herse | ¼ de case | 7 % de case |
 | Croisillons | ½ case | 14 % de case |
 | Grillage fin | 1/10 de case | 3,5 % de case (2 px minimum) |
+
+### Ombre projetée
+
+Par défaut, l'ombre d'une grille est **projetée au sol** comme en vrai. Une lumière et une grille ont une hauteur, et un rayon qui traverse la grille à une certaine hauteur retombe au sol plus ou moins loin derrière elle :
+
+- les **barreaux verticaux** dessinent des rayons qui partent de la lumière ;
+- les **barreaux horizontaux** (croisillons, grillage) dessinent des bandes parallèles à la grille, de plus en plus espacées en s'éloignant ;
+- ensemble, ils donnent le **quadrillage**, déformé selon la position de la lumière ;
+- une **flamme** plus grande adoucit l'ombre : nette au pied de la grille, de plus en plus floue au loin.
+
+| Réglage | Où | Par défaut |
+|---|---|---|
+| Hauteurs de la grille (bas, haut) | Fiche du mur | 0 à 3 cases (herse). Un bas plus haut fait une fenêtre, avec un mur plein dessous |
+| Hauteur d'une lumière posée | Fiche de la lumière | 1,5 case |
+| Hauteur d'une lumière portée | Automatique | À hauteur de main, selon la taille du token |
+| Taille de la flamme | Fiche de la lumière ou du token | 0,06 case (torche) |
+
+L'ombre suit la force de la lumière : pleine dans son rayon vif, nulle au bord de son rayon faible, et plus discrète de jour. Le réglage **Rendu des grilles** permet de revenir au rendu « Rayons » de la 2.1 (petits murs cachés, plus léger, sans quadrillage). Le banc d'essai `tools/grille-lab.html` montre le même calcul hors de Foundry.
 
 ## Réglages
 
@@ -89,6 +107,7 @@ Les murs reliés bout à bout qui portent le même motif et le même écartement
 | Jointures qui suivent | Activé | Les murs voisins suivent un point déplacé |
 | Coupure en T | Activé | Un mur touché en son milieu est coupé en deux |
 | Ne jamais couper les portes | Activé | Une porte touchée en son milieu reste entière |
+| Rendu des grilles | Projeté | Projeté : ombre peinte au sol (quadrillage, pénombre). Rayons : petits murs cachés (rendu de la 2.1) |
 | Pinceau : distance de recherche | 48 px | Jusqu'où le pinceau cherche un mur autour du trait, à l'écran. Propre à ce navigateur |
 | Pinceau : type de mur | Normal | Type des murs créés par le pinceau (aussi dans le cadran du pinceau). Propre à ce navigateur |
 | Pinceau : précision | 2 px | Écart maximal entre les murs créés et le contour suivi, à l'écran. Plus bas : plus de détails. Propre à ce navigateur |
@@ -108,7 +127,7 @@ Les modifications faites par Palisade portent l'option `{ palisade: true }`, pou
 
 ## Développement
 
-La géométrie (`scripts/geometry.js`), le pinceau (`scripts/brush.js`) et les motifs (`scripts/pattern.js`) ne dépendent pas de Foundry et se testent avec Node :
+La géométrie (`scripts/geometry.js`), le pinceau (`scripts/brush.js`), les motifs (`scripts/pattern.js`) et la projection (`scripts/projection.js`, référence du shader) ne dépendent pas de Foundry et se testent avec Node :
 
 ```
 node --test tests/*.test.mjs

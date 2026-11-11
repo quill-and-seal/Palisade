@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.2.0
+
+Ombre des grilles projetée au sol.
+
+- Une lumière et une grille ont une hauteur : les barreaux verticaux dessinent des rayons, les barreaux horizontaux des bandes parallèles à la grille, et ensemble un vrai quadrillage, déformé selon la position de la lumière.
+- Pénombre : une flamme plus grande adoucit l'ombre, nette au pied de la grille et floue au loin.
+- Hauteurs de la grille (bas, haut) dans la fiche du mur : herse au sol ou fenêtre avec un mur plein dessous.
+- Hauteur d'une lumière posée et taille de la flamme dans la fiche de la lumière ; taille de la flamme dans la fiche du token, dont la hauteur suit sa taille (à hauteur de main).
+- Réglage « Rendu des grilles » : projeté (par défaut) ou rayons (petits murs cachés, rendu de la 2.1).
+- Le type « Grille » du pinceau pose des croisillons (il posait des barreaux).
+
 ## 2.1.1
 
 - Motifs lumineux en chaîne : les murs reliés au même motif et au même écartement partagent leurs barreaux, répartis le long de la chaîne entière. Une grille découpée en petits murs (pinceau) laisse passer autant de lumière qu'un seul mur ; avant, les très petits murs étaient entièrement bouchés.

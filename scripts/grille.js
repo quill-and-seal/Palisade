@@ -11,7 +11,8 @@
  * seule la différence est créée ou supprimée. Seul le client qui a fait la modification agit.
  */
 
-import { MODULE_ID, isBar, t } from "./constants.js";
+import { MODULE_ID, isBar, setting, t } from "./constants.js";
+import { GRILLE_DEFAULTS, LIGHT_DEFAULTS } from "./projection.js";
 import { sceneBars, PATTERNS } from "./pattern.js";
 
 export const PATTERN_KEYS = Object.keys(PATTERNS);
@@ -30,7 +31,10 @@ function barData(c, parentId) {
 export function patternWalls(scene) {
   return scene.walls
     .filter((w) => !isBar(w) && patternOf(w))
-    .map((w) => ({ id: w.id, c: [...w.c], pattern: patternOf(w), density: w.flags[MODULE_ID]?.density }));
+    .map((w) => {
+      const f = w.flags[MODULE_ID];
+      return { id: w.id, c: [...w.c], pattern: patternOf(w), density: f?.density, bottom: f?.bottom, top: f?.top };
+    });
 }
 
 /* -------------------------------------------- */
@@ -45,7 +49,9 @@ const dirty = new Set();
 async function sync(scene) {
   if (!scene?.walls) return;
   const want = new Map();
-  for (const bar of sceneBars(patternWalls(scene), scene.grid?.size ?? canvas.grid?.size)) want.set(barKey(bar.owner, bar.c), bar);
+  // en rendu projeté, l'ombre est peinte par projection-render.js : pas de barreaux-murs
+  const rays = setting("grilleRender") === "rays";
+  if (rays) for (const bar of sceneBars(patternWalls(scene), scene.grid?.size ?? canvas.grid?.size)) want.set(barKey(bar.owner, bar.c), bar);
   const stale = [];
   for (const w of scene.walls.filter(isBar)) {
     const k = barKey(w.flags[MODULE_ID].barOf, [...w.c]);
@@ -60,7 +66,7 @@ async function sync(scene) {
  * Programme une synchronisation : les hooks d'un même lot (trait du pinceau, sélection déplacée,
  * collage) arrivent ensemble et ne déclenchent qu'un seul calcul. Les synchronisations se suivent.
  */
-function schedule(scene) {
+export function schedule(scene) {
   if (!scene) return;
   dirty.add(scene);
   clearTimeout(timer);
@@ -100,7 +106,7 @@ function onPreUpdateWall(doc, changes) {
 
 // Tout changement d'un mur ordinaire peut toucher une chaîne à motif (tracé, motif, voisin
 // ajouté ou retiré) : on resynchronise la scène si elle a des murs à motif ou des barreaux.
-const touchesPatterns = (scene) => scene?.walls.some((w) => isBar(w) || patternOf(w));
+export const touchesPatterns = (scene) => scene?.walls.some((w) => isBar(w) || patternOf(w));
 
 function onCreateWall(doc, options, userId) {
   if (mine(userId) && !isBar(doc) && touchesPatterns(doc.parent)) schedule(doc.parent);
@@ -148,6 +154,14 @@ function onRenderWallConfig(app, html) {
       <label>${t("PALISADE.Pattern.Density")}</label>
       <input type="number" name="${base}.density" value="${density}" min="0.5" max="4" step="0.25">
       <p class="hint">${t("PALISADE.Pattern.DensityHint")}</p>
+    </div>
+    <div class="form-group">
+      <label>${t("PALISADE.Pattern.Heights")}</label>
+      <div class="form-fields">
+        <input type="number" name="${base}.bottom" value="${num(doc, "bottom", GRILLE_DEFAULTS.bottom)}" min="0" max="20" step="0.05" title="${t("PALISADE.Pattern.Bottom")}">
+        <input type="number" name="${base}.top" value="${num(doc, "top", GRILLE_DEFAULTS.top)}" min="0.1" max="20" step="0.05" title="${t("PALISADE.Pattern.Top")}">
+      </div>
+      <p class="hint">${t("PALISADE.Pattern.HeightsHint")}</p>
     </div>`;
   const anchor = root.querySelector("footer.form-footer, .form-footer, footer");
   if (anchor) anchor.before(fs);
@@ -155,7 +169,53 @@ function onRenderWallConfig(app, html) {
   app.setPosition?.({ height: "auto" });
 }
 
+const num = (doc, key, fallback) => {
+  const v = Number(doc.flags?.[MODULE_ID]?.[key]);
+  return Number.isFinite(v) ? v : fallback;
+};
+
+/** Ajoute un bloc Palisade à une fiche (lumière, token), dans l'onglet voulu s'il existe. */
+function injectFieldset(app, html, cls, inner, tab) {
+  const root = html instanceof HTMLElement ? html : html?.[0] ?? app.element;
+  if (!root || !app.document || root.querySelector(`.${cls}`)) return;
+  const fs = document.createElement("fieldset");
+  fs.className = cls;
+  fs.innerHTML = `<legend><i class="fa-solid fa-grip-lines-vertical"></i> ${t("PALISADE.Light.Legend")}</legend>${inner}`;
+  const target = tab && root.querySelector(`.tab[data-tab="${tab}"]`);
+  if (target) target.append(fs);
+  else {
+    const anchor = root.querySelector("footer.form-footer, .form-footer, footer");
+    if (anchor) anchor.before(fs);
+    else (root.querySelector("form") ?? root).append(fs);
+  }
+  app.setPosition?.({ height: "auto" });
+}
+
+const flameField = (doc) => `
+  <div class="form-group">
+    <label>${t("PALISADE.Light.Flame")}</label>
+    <input type="number" name="flags.${MODULE_ID}.flame" value="${num(doc, "flame", LIGHT_DEFAULTS.flame)}" min="0" max="3" step="0.01">
+    <p class="hint">${t("PALISADE.Light.FlameHint")}</p>
+  </div>`;
+
+function onRenderAmbientLightConfig(app, html) {
+  const doc = app.document;
+  injectFieldset(app, html, "palisade-light-config", `
+    <div class="form-group">
+      <label>${t("PALISADE.Light.Height")}</label>
+      <input type="number" name="flags.${MODULE_ID}.height" value="${num(doc, "height", LIGHT_DEFAULTS.height)}" min="0" max="20" step="0.05">
+      <p class="hint">${t("PALISADE.Light.HeightHint")}</p>
+    </div>${flameField(doc)}`);
+}
+
+function onRenderTokenConfig(app, html) {
+  injectFieldset(app, html, "palisade-light-config", `${flameField(app.document)}
+    <p class="hint">${t("PALISADE.Light.TokenHint")}</p>`, "light");
+}
+
 export function registerGrille() {
+  Hooks.on("renderAmbientLightConfig", onRenderAmbientLightConfig);
+  Hooks.on("renderTokenConfig", onRenderTokenConfig);
   Hooks.on("preCreateWall", onPreCreateWall);
   Hooks.on("preUpdateWall", onPreUpdateWall);
   Hooks.on("createWall", onCreateWall);

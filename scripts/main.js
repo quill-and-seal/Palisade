@@ -12,7 +12,8 @@
 
 import { MODULE_ID, isBar, log } from "./constants.js";
 import { registerLinker, isEnabled } from "./linker.js";
-import { registerGrille } from "./grille.js";
+import { registerGrille, schedule } from "./grille.js";
+import { registerProjection, invalidateProjection } from "./projection-render.js";
 import { registerPatternDial } from "./pattern-dial.js";
 import { registerBrushTool, brushToolButton, WALL_TYPES } from "./brush-tool.js";
 import * as geometry from "./geometry.js";
@@ -91,6 +92,21 @@ function registerSettings() {
     default: 2
   });
 
+  game.settings.register(MODULE_ID, "grilleRender", {
+    name: "PALISADE.Settings.GrilleRender.Name",
+    hint: "PALISADE.Settings.GrilleRender.Hint",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: { projected: "PALISADE.Settings.GrilleRender.Projected", rays: "PALISADE.Settings.GrilleRender.Rays" },
+    default: "projected",
+    onChange: () => {
+      invalidateProjection();
+      // les barreaux-murs du rendu « rayons » sont créés ou retirés par un seul MJ
+      if (game.users.activeGM?.isSelf && canvas.scene) schedule(canvas.scene);
+    }
+  });
+
   game.settings.register(MODULE_ID, "skipDoors", {
     name: "PALISADE.Settings.SkipDoors.Name",
     hint: "PALISADE.Settings.SkipDoors.Hint",
@@ -130,6 +146,7 @@ Hooks.once("init", () => {
   registerSettings();
   registerLinker();
   registerGrille();
+  registerProjection();
   registerPatternDial();
   registerBrushTool();
 

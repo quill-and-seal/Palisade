@@ -8,7 +8,8 @@ const call = (n, ...args) => (hooks[n] ?? []).forEach((f) => f(...args));
 globalThis.CONST = { WALL_SENSE_TYPES: { NONE: 0, LIMITED: 10, NORMAL: 20 }, WALL_MOVEMENT_TYPES: { NONE: 0, NORMAL: 20 } };
 const path = (o, k) => k.split(".").reduce((x, p) => (x == null ? undefined : x[p]), o);
 globalThis.foundry = { utils: { getProperty: path, hasProperty: (o, k) => path(o, k) !== undefined } };
-globalThis.game = { user: { id: "gm", isGM: true }, i18n: { localize: (k) => k, format: (k) => k } };
+const settings = { grilleRender: "rays" }; // ces tests portent sur le rendu « rayons » (barreaux-murs)
+globalThis.game = { user: { id: "gm", isGM: true }, i18n: { localize: (k) => k, format: (k) => k }, settings: { get: (m, k) => settings[k] } };
 globalThis.canvas = { grid: { size: 100 } };
 
 let nextId = 1;
@@ -158,4 +159,17 @@ test("retirer le motif d'un morceau au milieu : la chaîne se coupe en deux et l
   assert.equal(bars(walls[1].id).length, 0);
   assert.equal(bars(walls[0].id).length, 4);
   assert.equal(bars(walls[2].id).length, 4);
+});
+
+test("rendu projeté : aucun barreau-mur, et ceux du rendu « rayons » sont retirés", async () => {
+  const { schedule } = await import("../scripts/grille.js");
+  const [wall] = await scene.createEmbeddedDocuments("Wall", [{ c: [0, 2000, 200, 2000], flags: { palisade: { pattern: "bars" } } }]);
+  await settle();
+  assert.equal(bars(wall.id).length, 8);
+  settings.grilleRender = "projected";
+  schedule(scene);
+  await settle();
+  assert.equal(scene.walls.filter((w) => w.flags.palisade?.barOf).length, 0, "plus aucun barreau-mur dans la scène");
+  assert.equal(wall.light, 0, "le mur à motif laisse toujours passer la lumière : c'est la projection qui fait l'ombre");
+  settings.grilleRender = "rays";
 });

@@ -31,9 +31,9 @@ export function wallTypeData(type) {
       return { sight: NONE, light: NONE, sound: NONE };
     case "terrain":
       return { sight: LIMITED, light: LIMITED, sound: LIMITED };
-    // grille : on voit au travers, la lumière passe entre les barreaux (motif lumineux, voir grille.js)
+    // grille : on voit au travers, la lumière passe entre les croisillons (motif lumineux, voir grille.js)
     case "grille":
-      return { sight: NONE, light: NONE, sound: NONE, flags: { palisade: { pattern: "bars" } } };
+      return { sight: NONE, light: NONE, sound: NONE, flags: { palisade: { pattern: "lattice" } } };
     default:
       return {};
   }

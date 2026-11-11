@@ -36,6 +36,12 @@
       "BrushWallType": {
         "Name": "Brush: wall type",
         "Hint": "Type of the walls the brush creates. Passable: tokens walk through, but sight and light are blocked. Invisible: blocks movement, not sight. Also changed in the brush panel. Per browser."
+      },
+      "GrilleRender": {
+        "Name": "Grate rendering",
+        "Hint": "Projected: the grate's shadow is painted on the floor from the light and grate heights (grid pattern, penumbra). Rays: small hidden walls that cut light into rays (2.1 rendering, lighter).",
+        "Projected": "Projected (grid)",
+        "Rays": "Rays (hidden walls)"
       }
     },
     "Keybindings": {
@@ -82,7 +88,19 @@
       "Density": "Spacing",
       "DensityHint": "1: original pattern. 2: bars twice as far apart. 0.5: twice as tight.",
       "KnobHint": "Bar spacing: mouse wheel, drag up or down, or arrow keys",
-      "DialHint": "Enter: apply · Escape: cancel"
+      "DialHint": "Enter: apply · Escape: cancel",
+      "Heights": "Heights (bottom, top)",
+      "Bottom": "Grate bottom, in grid units",
+      "Top": "Grate top, in grid units",
+      "HeightsHint": "In grid units. Bottom at 0: portcullis or cell bars. Higher bottom: window with a solid wall below. Above the top, solid wall. Used by projected rendering."
+    },
+    "Light": {
+      "Legend": "Palisade: grate shadows",
+      "Height": "Light height",
+      "HeightHint": "In grid units, from the floor. The higher it is, the farther a grate's shadow bands fall.",
+      "Flame": "Flame size",
+      "FlameHint": "Radius in grid units. Candle ≈ 0.02, torch ≈ 0.06, brazier ≈ 0.3, campfire ≈ 0.6. The larger, the softer a grate's shadow.",
+      "TokenHint": "A carried light's height follows the token's size (hand height)."
     }
   }
 }
