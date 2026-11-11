@@ -3,15 +3,16 @@
  *
  *   Segments      : le motif (aucun, barreaux, croisillons, grillage fin).
  *   Bouton central: l'écartement (×0,5 à ×4).
- *   Appliquer     : enregistre le motif sur le mur cliqué, ou sur toute la sélection si le mur
- *                   cliqué en fait partie. Annuler ou Échap referment sans rien changer.
+ *   Appliquer     : enregistre le motif sur les murs visés (voir targetsFor). Annuler ou Échap
+ *                   referment sans rien changer.
  *
  * Le clic droit n'est pas intercepté : glisser avec le bouton droit déplace toujours la vue.
  */
 
 import { MODULE_ID, isBar, t } from "./constants.js";
 import { createDial } from "./brush-dial.js";
-import { PATTERN_KEYS } from "./grille.js";
+import { PATTERN_KEYS, patternWalls } from "./grille.js";
+import { wallChains } from "./pattern.js";
 
 const NONE = "none";
 const ICONS = {
@@ -25,11 +26,23 @@ const CLICK_PX = 4;
 const state = { open: false, targets: [], pattern: NONE, density: 1, press: null };
 let dial = null;
 
-/** Murs visés par un clic droit sur `wall` : toute la sélection s'il en fait partie, sinon lui seul. */
-export function targetsFor(wall, controlled) {
+/**
+ * Murs visés par un clic droit sur `wall` :
+ *   - toute la sélection, si le mur cliqué en fait partie ;
+ *   - sinon, si le mur porte un motif, toute sa chaîne (murs reliés au même motif et écartement),
+ *     pour qu'une grille tracée en plusieurs morceaux se règle d'un coup ;
+ *   - sinon le mur seul (un mur ordinaire n'entraîne pas toute sa pièce).
+ * Les barreaux cachés ne sont jamais visés.
+ */
+export function targetsFor(wall, controlled, scene) {
   if (!wall || isBar(wall.document)) return [];
-  const group = controlled.includes(wall) ? controlled : [wall];
-  return group.filter((w) => !isBar(w.document)).map((w) => w.document);
+  if (controlled.includes(wall)) return controlled.filter((w) => !isBar(w.document)).map((w) => w.document);
+  const doc = wall.document;
+  const flags = doc.flags?.[MODULE_ID];
+  if (!flags?.pattern || !scene) return [doc];
+  const same = patternWalls(scene).filter((w) => w.pattern === flags.pattern && (Number(w.density) || 1) === (Number(flags.density) || 1));
+  const chain = wallChains(same).find((ch) => ch.ids.includes(doc.id));
+  return chain ? chain.ids.map((id) => scene.walls.get(id)).filter(Boolean) : [doc];
 }
 
 /** Mise à jour d'un mur pour un motif choisi au cadran (NONE retire le motif). */
@@ -110,7 +123,7 @@ function onPointerUp(event) {
   if (event.button !== 2 || !press?.wall) return;
   // un glissé au bouton droit déplace la vue : seul un vrai clic ouvre le cadran
   if (Math.hypot(event.clientX - press.x, event.clientY - press.y) > CLICK_PX) return;
-  const targets = targetsFor(press.wall, canvas.walls.controlled ?? []);
+  const targets = targetsFor(press.wall, canvas.walls.controlled ?? [], canvas.scene);
   if (targets.length) open(targets, event.clientX, event.clientY);
 }
 

@@ -3,18 +3,22 @@
  *
  * Le mur à motif est un mur ordinaire qui porte flags.palisade.pattern (et .density) ; il bloque
  * le passage mais pas la lumière. Ses barreaux sont des murs cachés, marqués flags.palisade.barOf,
- * qui ne bloquent que la lumière (voir pattern.js). Ils sont recréés à chaque changement du mur
- * (tracé, motif, densité) et supprimés avec lui. Seul le client qui a fait la modification agit.
+ * qui ne bloquent que la lumière (voir pattern.js). Les murs reliés qui portent le même motif
+ * forment une chaîne : les barreaux sont répartis le long de la chaîne entière, pour que l'écart
+ * reste régulier même sur une grille découpée en petits murs (tracé au pinceau).
+ *
+ * Après chaque lot de changements, les barreaux voulus pour toute la scène sont recalculés et
+ * seule la différence est créée ou supprimée. Seul le client qui a fait la modification agit.
  */
 
 import { MODULE_ID, isBar, t } from "./constants.js";
-import { patternBars, patternSize, PATTERNS } from "./pattern.js";
+import { sceneBars, PATTERNS } from "./pattern.js";
 
 export const PATTERN_KEYS = Object.keys(PATTERNS);
 const OPTS = { [MODULE_ID]: true };
 
 const patternOf = (doc) => doc.flags?.[MODULE_ID]?.pattern || "";
-const barsOf = (scene, id) => scene.walls.filter((w) => w.flags?.[MODULE_ID]?.barOf === id);
+const barKey = (owner, c) => `${owner}|${c.join(",")}`;
 
 /** Propriétés d'un barreau : bloque la lumière seulement. */
 function barData(c, parentId) {
@@ -22,31 +26,57 @@ function barData(c, parentId) {
   return { c, move: CONST.WALL_MOVEMENT_TYPES.NONE, sight: NONE, light: NORMAL, sound: NONE, flags: { [MODULE_ID]: { barOf: parentId } } };
 }
 
-/* -------------------------------------------- */
-/*  Mise à jour des barreaux                    */
-/* -------------------------------------------- */
-
-const queues = new Map();
-
-/** Recrée les barreaux d'un mur (à la suite des recréations déjà en cours pour ce mur). */
-function rebuild(doc) {
-  const run = async () => {
-    const scene = doc.parent;
-    if (!scene?.walls) return;
-    const live = scene.walls.get(doc.id);
-    const old = barsOf(scene, doc.id).map((w) => w.id);
-    if (old.length) await scene.deleteEmbeddedDocuments("Wall", old, OPTS);
-    if (!live) return;
-    const size = patternSize(patternOf(live), scene.grid?.size ?? canvas.grid?.size, live.flags[MODULE_ID]?.density);
-    if (!size) return;
-    const bars = patternBars([...live.c], size.spacing, size.thickness);
-    if (bars.length) await scene.createEmbeddedDocuments("Wall", bars.map((c) => barData(c, live.id)), OPTS);
-  };
-  const next = (queues.get(doc.id) ?? Promise.resolve()).then(run, run).catch((err) => console.error("Palisade |", err));
-  queues.set(doc.id, next);
-  next.finally(() => queues.get(doc.id) === next && queues.delete(doc.id));
-  return next;
+/** Murs à motif d'une scène, au format de sceneBars. */
+export function patternWalls(scene) {
+  return scene.walls
+    .filter((w) => !isBar(w) && patternOf(w))
+    .map((w) => ({ id: w.id, c: [...w.c], pattern: patternOf(w), density: w.flags[MODULE_ID]?.density }));
 }
+
+/* -------------------------------------------- */
+/*  Synchronisation des barreaux                */
+/* -------------------------------------------- */
+
+let running = Promise.resolve();
+let timer = 0;
+const dirty = new Set();
+
+/** Barreaux à créer et à supprimer pour qu'une scène corresponde à ses murs à motif. */
+async function sync(scene) {
+  if (!scene?.walls) return;
+  const want = new Map();
+  for (const bar of sceneBars(patternWalls(scene), scene.grid?.size ?? canvas.grid?.size)) want.set(barKey(bar.owner, bar.c), bar);
+  const stale = [];
+  for (const w of scene.walls.filter(isBar)) {
+    const k = barKey(w.flags[MODULE_ID].barOf, [...w.c]);
+    if (want.has(k)) want.delete(k);
+    else stale.push(w.id);
+  }
+  if (stale.length) await scene.deleteEmbeddedDocuments("Wall", stale, OPTS);
+  if (want.size) await scene.createEmbeddedDocuments("Wall", [...want.values()].map((b) => barData(b.c, b.owner)), OPTS);
+}
+
+/**
+ * Programme une synchronisation : les hooks d'un même lot (trait du pinceau, sélection déplacée,
+ * collage) arrivent ensemble et ne déclenchent qu'un seul calcul. Les synchronisations se suivent.
+ */
+function schedule(scene) {
+  if (!scene) return;
+  dirty.add(scene);
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    const scenes = [...dirty];
+    dirty.clear();
+    running = running
+      .then(async () => {
+        for (const sc of scenes) await sync(sc);
+      })
+      .catch((err) => console.error("Palisade |", err));
+  }, 20);
+}
+
+/** Attend la fin des synchronisations en cours (tests, API). */
+export const settled = () => new Promise((r) => setTimeout(r, 25)).then(() => running);
 
 /* -------------------------------------------- */
 /*  Hooks                                       */
@@ -68,21 +98,22 @@ function onPreUpdateWall(doc, changes) {
   else if (patternOf(doc)) changes.light = CONST.WALL_SENSE_TYPES.NORMAL;
 }
 
+// Tout changement d'un mur ordinaire peut toucher une chaîne à motif (tracé, motif, voisin
+// ajouté ou retiré) : on resynchronise la scène si elle a des murs à motif ou des barreaux.
+const touchesPatterns = (scene) => scene?.walls.some((w) => isBar(w) || patternOf(w));
+
 function onCreateWall(doc, options, userId) {
-  if (mine(userId) && !isBar(doc) && patternOf(doc)) rebuild(doc);
+  if (mine(userId) && !isBar(doc) && touchesPatterns(doc.parent)) schedule(doc.parent);
 }
 
 function onUpdateWall(doc, changes, options, userId) {
   if (!mine(userId) || isBar(doc)) return;
   const touched = "c" in changes || foundry.utils.hasProperty(changes, `flags.${MODULE_ID}`);
-  // un mur qui perd son motif garde des barreaux à supprimer : rebuild s'en charge
-  if (touched && (patternOf(doc) || barsOf(doc.parent, doc.id).length)) rebuild(doc);
+  if (touched && touchesPatterns(doc.parent)) schedule(doc.parent);
 }
 
 function onDeleteWall(doc, options, userId) {
-  if (!mine(userId) || isBar(doc) || !doc.parent) return;
-  const ids = barsOf(doc.parent, doc.id).map((w) => w.id);
-  if (ids.length) doc.parent.deleteEmbeddedDocuments("Wall", ids, OPTS);
+  if (mine(userId) && !isBar(doc) && touchesPatterns(doc.parent)) schedule(doc.parent);
 }
 
 // Les barreaux sont des détails internes : invisibles et inertes dans le calque des murs.

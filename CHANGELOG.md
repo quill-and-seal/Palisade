@@ -2,6 +2,8 @@
 
 ## 2.1.0
 
+- Motifs lumineux en chaîne : les murs reliés au même motif et au même écartement partagent leurs barreaux, répartis le long de la chaîne entière. Une grille découpée en petits murs (pinceau) laisse passer autant de lumière qu'un seul mur ; avant, les très petits murs étaient entièrement bouchés.
+- Clic droit sur un morceau de grille : le cadran vise toute sa chaîne.
 - Motifs lumineux : clic droit sur un mur pour ouvrir le cadran sur place. Segments pour le motif (aucun, barreaux, croisillons, grillage fin), bouton central pour l'écartement, Appliquer pour valider. S'applique à toute la sélection si le mur cliqué en fait partie.
 
 ## 2.0.0

@@ -66,11 +66,13 @@ Un mur peut porter un **motif** : barreaux, croisillons ou grillage fin. Il bloq
 
 ![Lumière à travers les motifs](docs/grille-lumiere.png)
 
-- **Clic droit sur un mur** (calque des murs) : le cadran s'ouvre à l'endroit du clic. Les segments choisissent le motif (*Aucun* le retire), le bouton central l'écartement (×0,5 à ×4, à la molette), puis **Appliquer** (ou Entrée). Si le mur cliqué fait partie de la sélection, le motif s'applique à tous les murs sélectionnés. Glisser au bouton droit déplace toujours la vue.
+- **Clic droit sur un mur** (calque des murs) : le cadran s'ouvre à l'endroit du clic. Les segments choisissent le motif (*Aucun* le retire), le bouton central l'écartement (×0,5 à ×4, à la molette), puis **Appliquer** (ou Entrée). Le motif s'applique à toute la sélection si le mur cliqué en fait partie, sinon à toute la chaîne à motif du mur cliqué (un mur ordinaire est visé seul). Glisser au bouton droit déplace toujours la vue.
 - **Dans la fiche du mur** (double-clic) : section **Palisade : motif lumineux**, mêmes réglages.
 - **Au pinceau** : choisis le type **Grille** dans le cadran avant d'appliquer.
 
-Le mur reste un seul mur : tu le déplaces, le modifies et le supprimes d'un bloc. Ses barreaux sont de petits murs cachés qui ne bloquent que la lumière ; ils sont recréés à chaque changement et supprimés avec lui. La vue n'est pas découpée : on voit à travers la grille. Les tailles suivent la case de la scène (barreaux tous les quarts de case).
+Le mur reste un seul mur : tu le déplaces, le modifies et le supprimes d'un bloc. Ses barreaux sont de petits murs cachés qui ne bloquent que la lumière ; ils sont recalculés à chaque changement et supprimés avec lui.
+
+Les murs reliés bout à bout qui portent le même motif et le même écartement forment une **chaîne** : les barreaux sont répartis le long de la chaîne entière, donc l'écart reste régulier même sur une grille découpée en dizaines de petits murs (tracé au pinceau). Un clic droit sur n'importe quel morceau règle toute la chaîne ; une chaîne s'arrête à un carrefour. La vue n'est pas découpée : on voit à travers la grille. Les tailles suivent la case de la scène (barreaux tous les quarts de case).
 
 | Motif | Écart | Épaisseur |
 |---|---|---|

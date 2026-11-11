@@ -45,11 +45,12 @@ const scene = {
   }
 };
 scene.walls.filter = (f) => [...scene.walls.values()].filter(f);
+scene.walls.some = (f) => [...scene.walls.values()].some(f);
 
-const { registerGrille } = await import("../scripts/grille.js");
+const { registerGrille, settled } = await import("../scripts/grille.js");
 registerGrille();
 
-const settle = () => new Promise((r) => setTimeout(r, 30));
+const settle = settled;
 const bars = (id) => scene.walls.filter((w) => w.flags.palisade?.barOf === id);
 
 test("un mur à motif laisse passer la lumière et reçoit des barreaux qui ne bloquent qu'elle", async () => {
@@ -109,9 +110,9 @@ test("cadran : clic droit sur un mur sélectionné → toute la sélection, sino
   const { targetsFor } = await import("../scripts/pattern-dial.js");
   const w = (id, flags = {}) => ({ document: { id, flags } });
   const a = w("a"), b = w("b"), bar = w("x", { palisade: { barOf: "a" } }), c = w("c");
-  assert.deepEqual(targetsFor(a, [a, b, bar]).map((d) => d.id), ["a", "b"]);
-  assert.deepEqual(targetsFor(c, [a, b]).map((d) => d.id), ["c"]);
-  assert.deepEqual(targetsFor(bar, [bar]), []);
+  assert.deepEqual(targetsFor(a, [a, b, bar], scene).map((d) => d.id), ["a", "b"]);
+  assert.deepEqual(targetsFor(c, [a, b], scene).map((d) => d.id), ["c"]);
+  assert.deepEqual(targetsFor(bar, [bar], scene), []);
 });
 
 test("cadran : Appliquer pose le motif et l'écartement, « Aucun » le retire", async () => {
@@ -125,4 +126,36 @@ test("cadran : Appliquer pose le motif et l'écartement, « Aucun » le retire",
   await settle();
   assert.equal(wall.light, 20);
   assert.equal(bars(wall.id).length, 0);
+});
+
+test("grille découpée en 40 petits murs (pinceau) : même lumière qu'un seul mur, en un seul calcul", async () => {
+  const pieces = Array.from({ length: 40 }, (_, i) => ({ c: [i * 5, 1500, (i + 1) * 5, 1500], flags: { palisade: { pattern: "bars" } } }));
+  const walls = await scene.createEmbeddedDocuments("Wall", pieces);
+  await settle();
+  const ids = new Set(walls.map((w) => w.id));
+  const all = scene.walls.filter((w) => ids.has(w.flags.palisade?.barOf));
+  const blocked = all.reduce((s, w) => s + Math.hypot(w.c[2] - w.c[0], w.c[3] - w.c[1]), 0);
+  assert.ok(Math.abs(blocked / 200 - 0.28) <= 0.04, `${Math.round((blocked / 200) * 100)} % bouché au lieu de 28 %`);
+});
+
+test("clic droit sur un morceau de grille : toute la chaîne est visée, un mur ordinaire reste seul", async () => {
+  const { targetsFor } = await import("../scripts/pattern-dial.js");
+  const pieces = Array.from({ length: 5 }, (_, i) => ({ c: [i * 40, 1600, (i + 1) * 40, 1600], flags: { palisade: { pattern: "lattice" } } }));
+  const walls = await scene.createEmbeddedDocuments("Wall", [...pieces, { c: [200, 1600, 200, 1700] }]);
+  await settle();
+  const plain = walls[5];
+  const got = targetsFor({ document: walls[2] }, [], scene).map((d) => d.id).sort();
+  assert.deepEqual(got, walls.slice(0, 5).map((w) => w.id).sort());
+  assert.deepEqual(targetsFor({ document: plain }, [], scene).map((d) => d.id), [plain.id]);
+});
+
+test("retirer le motif d'un morceau au milieu : la chaîne se coupe en deux et le morceau perd ses barreaux", async () => {
+  const pieces = Array.from({ length: 3 }, (_, i) => ({ c: [i * 100, 1800, (i + 1) * 100, 1800], flags: { palisade: { pattern: "bars" } } }));
+  const walls = await scene.createEmbeddedDocuments("Wall", pieces);
+  await settle();
+  await scene.updateEmbeddedDocuments("Wall", [{ _id: walls[1].id, flags: { palisade: { pattern: "" } } }]);
+  await settle();
+  assert.equal(bars(walls[1].id).length, 0);
+  assert.equal(bars(walls[0].id).length, 4);
+  assert.equal(bars(walls[2].id).length, 4);
 });
