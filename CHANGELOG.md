@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.4
+
+- Vue hachurée : toute la zone vue par le PJ devenait noire. Le calque d'interface de Foundry est dessiné à part, sur un fond transparent, et l'assombrissement par multiplication y donnait du noir. Les barreaux sont maintenant peints en noir semi-transparent, quel que soit le calque.
+
 ## 2.2.3
 
 - Vue hachurée : les hachures couvrent toute la ligne de vue du PJ ; elles s'arrêtaient à son rayon de vision, alors qu'il voit aussi les zones éclairées au-delà.

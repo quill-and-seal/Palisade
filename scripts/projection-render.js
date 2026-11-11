@@ -38,6 +38,7 @@ const FRAGMENT = `
   uniform float uHeight;     // hauteur de la lumière
   uniform float uFlame;      // rayon de la flamme
   uniform vec3 uFalloff;     // rayon vif, rayon faible, force de l'ombre
+  uniform float uAlpha;      // 0 : assombrit en multiplication ; 1 : peint du noir semi-transparent
   uniform int uCount;
   uniform vec4 uSegA[${MAX_SEGMENTS}];   // extrémités a.x, a.y, b.x, b.y
   uniform vec4 uSegB[${MAX_SEGMENTS}];   // décalage sur la chaîne, longueur de la chaîne, écart, part du barreau
@@ -77,7 +78,8 @@ const FRAGMENT = `
     float d = distance(P, uLight);
     float strength = uFalloff.z * (1.0 - smoothstep(uFalloff.x, max(uFalloff.y, uFalloff.x + 1.0), d));
     float k = 1.0 - (1.0 - pass) * strength;
-    gl_FragColor = vec4(k, k, k, 1.0);
+    // noir prémultiplié d'opacité 1 − k : ne dépend pas de ce qui est déjà dessiné dessous
+    gl_FragColor = uAlpha > 0.5 ? vec4(0.0, 0.0, 0.0, 1.0 - k) : vec4(k, k, k, 1.0);
   }`;
 
 /**
@@ -92,6 +94,8 @@ const FRAGMENT = `
  * @param {number} o.dim        rayon faible
  * @param {number} o.strength   force de l'ombre (0–1)
  * @param {ReturnType<typeof grilleSegments>} o.segments
+ * @param {boolean} [o.overlay]  peindre du noir semi-transparent au lieu de multiplier : pour un
+ *                               calque dessiné à part (interface), où la multiplication noircirait tout
  * @returns {PIXI.Mesh}
  */
 export function makeShadowMesh(o) {
@@ -101,7 +105,7 @@ export function makeShadowMesh(o) {
     .addIndex(o.points.length / 2 > 65535 ? new Uint32Array(indices) : new Uint16Array(indices));
   const shader = PIXI.Shader.from(VERTEX, FRAGMENT, shadowUniforms(o));
   const mesh = new PIXI.Mesh(geometry, shader);
-  mesh.blendMode = PIXI.BLEND_MODES.MULTIPLY;
+  mesh.blendMode = o.overlay ? PIXI.BLEND_MODES.NORMAL : PIXI.BLEND_MODES.MULTIPLY;
   return mesh;
 }
 
@@ -121,6 +125,7 @@ export function shadowUniforms(o) {
     uHeight: o.height,
     uFlame: o.flame,
     uFalloff: new Float32Array([o.bright, o.dim, o.strength]),
+    uAlpha: o.overlay ? 1 : 0,
     uCount: segs.length,
     uSegA: segA,
     uSegB: segB,
@@ -276,7 +281,8 @@ function updateEye() {
   const doc = sourceDocument(eye, canvas.scene);
   try {
     eyeContainer.addChild(
-      makeShadowMesh({ points, x, y, height: eyeHeight(doc?.width) * canvas.grid.size, flame: 0, bright: 1e9, dim: 1e9 + 1, strength: HATCH, segments: near })
+      // rayon vif immense (sans atténuation), mais assez petit pour rester exact en flottant 32 bits
+      makeShadowMesh({ points, x, y, height: eyeHeight(doc?.width) * canvas.grid.size, flame: 0, bright: 1e6, dim: 2e6, strength: HATCH, segments: near, overlay: true })
     );
     status.eye = eye.sourceId ?? true;
   } catch (err) {
