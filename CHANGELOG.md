@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.3.0
+## 2.2.2
 
 - Vue à travers les grilles : on voit à travers, mais les barreaux hachurent la vue du PJ, depuis ses yeux (à hauteur d'yeux selon la taille du token). Ce qu'il voit de l'autre côté, tokens compris, apparaît derrière les barreaux.
 - Poser un motif rend le mur transparent au regard (il bloquait la vue comme un mur plein), le retirer le rend opaque ; les grilles déjà posées sont mises à jour au chargement de la scène.
